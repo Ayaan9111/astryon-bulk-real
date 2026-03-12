@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, FileText, CheckCircle2, AlertCircle, Settings2, Download } from "lucide-react";
+import { Upload, FileText, CheckCircle2, AlertCircle, Settings2, Download, Sparkles } from "lucide-react";
 import { useGenerateListings, type PropertyRow } from "@workspace/api-client-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
