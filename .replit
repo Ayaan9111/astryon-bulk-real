@@ -29,7 +29,7 @@ timeoutMs = 20000
 
 [userenv.shared]
 MODEL_PROVIDER = "groq"
-AI_MODEL_NAME = "llama-3.1-70b-versatile"
+AI_MODEL_NAME = "llama-3.3-70b-versatile"
 STARTER_PROVIDER = "groq"
 PRO_PROVIDER = "groq"
 AGENCY_PROVIDER = "groq"

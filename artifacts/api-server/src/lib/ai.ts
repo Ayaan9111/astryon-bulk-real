@@ -15,7 +15,7 @@ function getModelForPlan(plan: string): { provider: string; model: string } {
   const starterProvider = process.env.STARTER_PROVIDER || process.env.MODEL_PROVIDER || "groq";
   const proProvider = process.env.PRO_PROVIDER || process.env.MODEL_PROVIDER || "groq";
   const agencyProvider = process.env.AGENCY_PROVIDER || process.env.MODEL_PROVIDER || "groq";
-  const modelName = process.env.AI_MODEL_NAME || "llama-3.1-70b-versatile";
+  const modelName = process.env.AI_MODEL_NAME || "llama-3.3-70b-versatile";
 
   let provider = "groq";
   if (plan === "starter") provider = starterProvider;
