@@ -1,22 +1,35 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Astryón Bulk Real Estate Listing Ops API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: user
+    description: User management
+  - name: listings
+    description: Listing generation
+  - name: subscriptions
+    description: Subscription management
+  - name: admin
+    description: Admin panel
+  - name: feedback
+    description: User feedback
+  - name: webhooks
+    description: Webhook handlers
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,504 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout user
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /user/profile:
+    patch:
+      operationId: updateProfile
+      tags: [user]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileBody"
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /user/change-password:
+    post:
+      operationId: changePassword
+      tags: [user]
+      summary: Change user password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordBody"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized or wrong password
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/generate:
+    post:
+      operationId: generateListings
+      tags: [listings]
+      summary: Generate listing descriptions from CSV data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateListingsBody"
+      responses:
+        "200":
+          description: Listings generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateListingsResponse"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "402":
+          description: Insufficient credits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/history:
+    get:
+      operationId: getGenerationHistory
+      tags: [listings]
+      summary: Get generation history for current user
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generation history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationHistoryResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/history/{id}:
+    get:
+      operationId: getGenerationJob
+      tags: [listings]
+      summary: Get a specific generation job with results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Generation job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationJob"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions/plans:
+    get:
+      operationId: getPlans
+      tags: [subscriptions]
+      summary: Get available subscription plans
+      responses:
+        "200":
+          description: Available plans
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlansResponse"
+
+  /subscriptions/checkout:
+    post:
+      operationId: createCheckout
+      tags: [subscriptions]
+      summary: Create Paddle checkout URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCheckoutBody"
+      responses:
+        "200":
+          description: Checkout URL created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /subscriptions/cancel:
+    post:
+      operationId: cancelSubscription
+      tags: [subscriptions]
+      summary: Cancel current subscription
+      responses:
+        "200":
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /webhooks/paddle:
+    post:
+      operationId: paddleWebhook
+      tags: [webhooks]
+      summary: Paddle webhook handler
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /feedback:
+    post:
+      operationId: submitFeedback
+      tags: [feedback]
+      summary: Submit user feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackBody"
+      responses:
+        "201":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users:
+    get:
+      operationId: adminGetUsers
+      tags: [admin]
+      summary: Get all users (admin only)
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Users list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUsersResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{id}/credits:
+    patch:
+      operationId: adminAdjustCredits
+      tags: [admin]
+      summary: Adjust user credits (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdjustCreditsBody"
+      responses:
+        "200":
+          description: Credits adjusted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/feedback:
+    get:
+      operationId: adminGetFeedback
+      tags: [admin]
+      summary: Get all feedback (admin only)
+      responses:
+        "200":
+          description: Feedback list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminFeedbackResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/settings:
+    get:
+      operationId: adminGetSettings
+      tags: [admin]
+      summary: Get admin settings
+      responses:
+        "200":
+          description: Admin settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: adminUpdateSettings
+      tags: [admin]
+      summary: Update admin settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminSettingsBody"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSettings"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/webhooks:
+    get:
+      operationId: adminGetWebhookLogs
+      tags: [admin]
+      summary: Get webhook event logs (admin only)
+      responses:
+        "200":
+          description: Webhook logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookLogsResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Get platform stats (admin only)
+      responses:
+        "200":
+          description: Platform stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +545,505 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    RegisterBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        fullName:
+          type: string
+      required:
+        - email
+        - password
+        - fullName
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserProfile"
+      required:
+        - token
+        - user
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+        plan:
+          type: string
+        creditsRemaining:
+          type: integer
+        creditsTotal:
+          type: integer
+        subscriptionStatus:
+          type: ["string", "null"]
+        subscriptionId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - role
+        - plan
+        - creditsRemaining
+        - creditsTotal
+        - subscriptionStatus
+        - subscriptionId
+        - createdAt
+
+    UpdateProfileBody:
+      type: object
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+
+    ChangePasswordBody:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+      required:
+        - currentPassword
+        - newPassword
+
+    PropertyRow:
+      type: object
+      properties:
+        propertyTitle:
+          type: ["string", "null"]
+        propertyType:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["string", "null"]
+        bathrooms:
+          type: ["string", "null"]
+        area:
+          type: ["string", "null"]
+        location:
+          type: ["string", "null"]
+        price:
+          type: ["string", "null"]
+        amenities:
+          type: ["string", "null"]
+        nearbyLandmarks:
+          type: ["string", "null"]
+        additionalNotes:
+          type: ["string", "null"]
+      required:
+        - propertyTitle
+
+    GenerateListingsBody:
+      type: object
+      properties:
+        properties:
+          type: array
+          items:
+            $ref: "#/components/schemas/PropertyRow"
+        outputMode:
+          type: string
+          enum: [concise, detailed]
+        includeSocialCaption:
+          type: boolean
+      required:
+        - properties
+        - outputMode
+
+    GeneratedListing:
+      type: object
+      properties:
+        propertyTitle:
+          type: string
+        longDescription:
+          type: string
+        shortDescription:
+          type: string
+        socialCaption:
+          type: ["string", "null"]
+      required:
+        - propertyTitle
+        - longDescription
+        - shortDescription
+        - socialCaption
+
+    GenerateListingsResponse:
+      type: object
+      properties:
+        jobId:
+          type: integer
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedListing"
+        creditsUsed:
+          type: integer
+        creditsRemaining:
+          type: integer
+      required:
+        - jobId
+        - listings
+        - creditsUsed
+        - creditsRemaining
+
+    GenerationJobSummary:
+      type: object
+      properties:
+        id:
+          type: integer
+        outputMode:
+          type: string
+        listingCount:
+          type: integer
+        creditsUsed:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - outputMode
+        - listingCount
+        - creditsUsed
+        - createdAt
+
+    GenerationHistoryResponse:
+      type: object
+      properties:
+        jobs:
+          type: array
+          items:
+            $ref: "#/components/schemas/GenerationJobSummary"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - jobs
+        - total
+        - page
+        - limit
+
+    GenerationJob:
+      type: object
+      properties:
+        id:
+          type: integer
+        outputMode:
+          type: string
+        listingCount:
+          type: integer
+        creditsUsed:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        listings:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedListing"
+      required:
+        - id
+        - outputMode
+        - listingCount
+        - creditsUsed
+        - createdAt
+        - listings
+
+    Plan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        priceEur:
+          type: number
+        credits:
+          type: integer
+        description:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        isPopular:
+          type: boolean
+        paddleProductId:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - priceEur
+        - credits
+        - description
+        - features
+        - isPopular
+        - paddleProductId
+
+    PlansResponse:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: "#/components/schemas/Plan"
+      required:
+        - plans
+
+    CreateCheckoutBody:
+      type: object
+      properties:
+        planId:
+          type: string
+      required:
+        - planId
+
+    CheckoutResponse:
+      type: object
+      properties:
+        checkoutUrl:
+          type: string
+      required:
+        - checkoutUrl
+
+    FeedbackBody:
+      type: object
+      properties:
+        subject:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [bug, feature, general]
+      required:
+        - subject
+        - message
+        - type
+
+    AdminUserRow:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: string
+        plan:
+          type: string
+        creditsRemaining:
+          type: integer
+        subscriptionStatus:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - plan
+        - creditsRemaining
+        - subscriptionStatus
+        - createdAt
+
+    AdminUsersResponse:
+      type: object
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUserRow"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+      required:
+        - users
+        - total
+        - page
+        - limit
+
+    AdjustCreditsBody:
+      type: object
+      properties:
+        credits:
+          type: integer
+        reason:
+          type: string
+      required:
+        - credits
+
+    FeedbackItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userEmail:
+          type: string
+        subject:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - userEmail
+        - subject
+        - message
+        - type
+        - createdAt
+
+    AdminFeedbackResponse:
+      type: object
+      properties:
+        feedback:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedbackItem"
+      required:
+        - feedback
+
+    AdminSettings:
+      type: object
+      properties:
+        modelProvider:
+          type: string
+        aiModelName:
+          type: string
+        starterProvider:
+          type: string
+        proProvider:
+          type: string
+        agencyProvider:
+          type: string
+      required:
+        - modelProvider
+        - aiModelName
+        - starterProvider
+        - proProvider
+        - agencyProvider
+
+    AdminSettingsBody:
+      type: object
+      properties:
+        modelProvider:
+          type: string
+        aiModelName:
+          type: string
+        starterProvider:
+          type: string
+        proProvider:
+          type: string
+        agencyProvider:
+          type: string
+
+    WebhookLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+        payload:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - eventType
+        - payload
+        - status
+        - createdAt
+
+    WebhookLogsResponse:
+      type: object
+      properties:
+        logs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookLog"
+      required:
+        - logs
+
+    AdminStats:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+        activeSubscriptions:
+          type: integer
+        totalGenerations:
+          type: integer
+        totalCreditsUsed:
+          type: integer
+        usersByPlan:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - totalUsers
+        - activeSubscriptions
+        - totalGenerations
+        - totalCreditsUsed
+        - usersByPlan

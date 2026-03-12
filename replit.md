@@ -1,8 +1,8 @@
-# Workspace
+# Astryón Bulk Real Estate Listing Ops
 
 ## Overview
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+A professional SaaS platform for real estate agents and agencies that automatically generates bulk real estate listing descriptions using AI. Built as a full-stack monorepo with React + Vite frontend, Express 5 backend, PostgreSQL database, and Groq/OpenAI AI integration.
 
 ## Stack
 
@@ -10,87 +10,114 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Node.js version**: 24
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
+- **Frontend**: React + Vite (Tailwind CSS, shadcn/ui, Zustand, wouter)
 - **API framework**: Express 5
 - **Database**: PostgreSQL + Drizzle ORM
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **AI**: Groq SDK (primary), OpenAI (optional upgrade)
+- **Payments**: Paddle
+
+## Key Features
+
+1. **Authentication** - JWT-based login/register with bcrypt password hashing
+2. **Subscription Plans** - Starter (€49/60 credits), Pro (€129/200 credits), Agency (€299/600 credits)
+3. **CSV Upload & Bulk AI Generation** - Parse CSV client-side with PapaParse, send to API, generate with Groq
+4. **Export** - Download generated listings as CSV
+5. **Credit System** - Server-side enforced, resets monthly via Paddle webhooks
+6. **Admin Panel** - User management, credit adjustments, AI provider switching, feedback, webhook logs
+7. **Feedback System** - Submit feedback from dashboard
+8. **Legal Pages** - Privacy, Terms, Refund at /privacy, /terms, /refund
+
+## Required Environment Variables / Secrets
+
+Set these in the Secrets tab:
+
+| Variable | Description |
+|---|---|
+| `GROQ_API_KEY` | Groq API key for AI generation (primary) |
+| `OPENAI_API_KEY` | OpenAI API key (optional, for Pro/Agency upgrade) |
+| `JWT_SECRET` | Secret for signing JWT tokens (generate a random string) |
+| `PADDLE_VENDOR_ID` | Your Paddle vendor ID |
+| `PADDLE_API_KEY` | Your Paddle API key |
+| `PADDLE_PUBLIC_KEY` | Your Paddle public key for webhook verification |
+| `PADDLE_PRODUCT_STARTER` | Paddle product ID for Starter plan |
+| `PADDLE_PRODUCT_PRO` | Paddle product ID for Pro plan |
+| `PADDLE_PRODUCT_AGENCY` | Paddle product ID for Agency plan |
+
+Set these as env vars (already configured):
+
+| Variable | Value |
+|---|---|
+| `MODEL_PROVIDER` | `groq` |
+| `AI_MODEL_NAME` | `llama-3.1-70b-versatile` |
+| `STARTER_PROVIDER` | `groq` |
+| `PRO_PROVIDER` | `groq` |
+| `AGENCY_PROVIDER` | `groq` |
+
+## Paddle Setup Steps
+
+1. Create a Paddle account at paddle.com
+2. Create 3 subscription products: Starter (€49/mo), Pro (€129/mo), Agency (€299/mo)
+3. Copy the product IDs into secrets: `PADDLE_PRODUCT_STARTER`, `PADDLE_PRODUCT_PRO`, `PADDLE_PRODUCT_AGENCY`
+4. Set your webhook endpoint to: `https://yourdomain.com/api/webhooks/paddle`
+5. Paddle will handle credit resets via `subscription_payment_succeeded` webhook events
+
+## AI Provider Setup & Switching
+
+**Current configuration**: All plans use Groq (`llama-3.1-70b-versatile`)
+
+**To switch providers after first paying user**:
+1. Go to the Admin Panel → Settings tab
+2. Change Pro Provider and Agency Provider to `openai`
+3. Ensure `OPENAI_API_KEY` secret is set
+
+**Environment variable control** (alternative):
+- Set `PRO_PROVIDER=openai` and `AGENCY_PROVIDER=openai` in env vars
+- Set `AI_MODEL_NAME=gpt-4o-mini` for OpenAI
+
+## Creating Admin User
+
+After registering an account, run this SQL to make a user admin:
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'your@email.com';
+```
 
 ## Structure
 
 ```text
 artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
+├── artifacts/
+│   ├── api-server/         # Express API server
+│   │   └── src/
+│   │       ├── lib/auth.ts    # JWT auth + middleware
+│   │       ├── lib/ai.ts      # AI generation service (Groq/OpenAI)
+│   │       └── routes/        # API route handlers
+│   └── astryon/            # React + Vite frontend
+│       └── src/
+│           ├── pages/         # All page components
+│           ├── components/    # Shared UI components
+│           └── lib/           # Utils, store
+├── lib/
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks
 │   ├── api-zod/            # Generated Zod schemas from OpenAPI
 │   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+│       └── src/schema/
+│           ├── users.ts
+│           ├── generation_jobs.ts
+│           ├── feedback.ts
+│           ├── webhook_logs.ts
+│           └── admin_settings.ts
 ```
 
-## TypeScript & Composite Projects
+## Webhook Endpoint
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+Paddle webhooks → `POST /api/webhooks/paddle`
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
-
-## Root Scripts
-
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
-
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+Supported events:
+- `subscription_created` → Activate plan + assign credits
+- `subscription_payment_succeeded` → Reset monthly credits
+- `subscription_cancelled` → Update subscription status
+- `subscription_payment_failed` → Update payment status

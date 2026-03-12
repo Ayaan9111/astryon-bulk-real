@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Astryón Bulk Real Estate Listing Ops"
+version = "1.0.0"
+id = "artifacts/astryon"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+localPort = 21851
+name = "web"
+paths = ["/"]
+
+[services.development]
+run = "pnpm --filter @workspace/astryon run dev"
+
+[services.env]
+PORT = "21851"
+BASE_PATH = "/"
+
+[services.production]
+build = ["pnpm", "--filter", "@workspace/astryon", "run", "build"]
+publicDir = "artifacts/astryon/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"

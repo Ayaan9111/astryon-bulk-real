@@ -1,0 +1,22 @@
+packages:
+  "papaparse": "Parsing CSV files client-side for bulk listing generation"
+  "@types/papaparse": "Types for papaparse"
+  "framer-motion": "High-quality animations and page transitions"
+  "lucide-react": "Beautiful iconography"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes safely"
+  "date-fns": "Formatting dates in dashboard and history"
+  "zustand": "Lightweight state management for auth and user session"
+
+images:
+  - path: "artifacts/astryon/public/images/hero-bg.png"
+    description: "Deep dark purple and black abstract gradient mesh with subtle glowing data nodes and a premium, high-tech SaaS vibe"
+    aspect_ratio: "16:9"
+  - path: "artifacts/astryon/public/images/logo.png"
+    description: "Minimalist geometric premium logo mark for a real estate AI platform, vibrant violet on a transparent background"
+    aspect_ratio: "1:1"
+
+notes:
+  - Authentication token is stored in localStorage as 'token'
+  - The customFetch implementation is expected to inject the 'token' from localStorage into the Authorization header
+  - Using PapaParse for robust client-side CSV processing

@@ -1,0 +1,337 @@
+Build a SaaS web application called Astryón Bulk Real Estate Listing Ops.
+
+This is a professional SaaS product for real estate agents and agencies that automatically generates bulk real estate listing descriptions using AI.
+
+The product must be built as a modern SaaS platform with authentication, dashboard, subscription billing, credit system, CSV bulk generation, and AI output generation.
+
+Use a premium black and purple theme across the entire UI.
+
+Primary colors:
+
+background: #0B0B0F
+
+surface: dark charcoal
+
+accent: purple #6C3BFF
+
+glow accents allowed
+
+rounded corners 12–16px
+
+clean SaaS UI, minimalistic, high contrast typography
+
+Avoid default bootstrap appearance.
+
+WHAT ASTRYÓN IS
+
+Astryón is an AI-powered SaaS tool designed to help real estate professionals generate large volumes of property listing descriptions automatically.
+
+Real estate agents often spend hours writing listing descriptions for property portals, marketing websites, and CRM systems.
+
+Astryón automates this process.
+
+Users upload a spreadsheet of property data and the system generates professional listing descriptions in bulk using AI.
+
+The output is formatted and ready for publishing on property portals or CRM systems.
+
+The goal is to save agencies time and maintain consistent listing quality.
+
+WHAT THE APPLICATION DOES
+
+The application performs the following core functions:
+
+1️⃣ User authentication system
+Users can create accounts, login, and manage their subscription.
+
+2️⃣ Dashboard
+After login, users access a dashboard showing:
+
+subscription plan
+
+credits remaining
+
+generation history
+
+account management
+
+3️⃣ CSV Upload System
+Users upload a CSV containing property data.
+
+Expected columns may include:
+
+property_title
+
+property_type
+
+bedrooms
+
+bathrooms
+
+area
+
+location
+
+price
+
+amenities
+
+nearby_landmarks
+
+additional_notes
+
+The system must parse each row as a separate property listing.
+
+4️⃣ AI Generation Engine
+
+For each property row, the system generates:
+
+• Long professional listing description
+• Short portal-ready description
+• Optional social media caption
+
+The AI must produce factual structured output without exaggeration or storytelling.
+
+Two output modes must exist:
+
+Concise
+Short, structured professional paragraph.
+
+Detailed
+Longer, descriptive but still professional.
+
+Each generated listing consumes 1 credit.
+
+5️⃣ Bulk Processing
+
+Users can generate descriptions for many listings at once.
+
+Example:
+
+CSV with 50 rows → generates 50 listings → consumes 50 credits.
+
+6️⃣ Export System
+
+Users can download results as:
+
+CSV export containing generated descriptions.
+
+7️⃣ Credit System
+
+Credits reset monthly based on subscription tier.
+
+Starter
+€49 / month
+60 credits
+
+Pro (Most Popular)
+€129 / month
+200 credits
+
+Agency
+€299 / month
+600 credits
+Includes multi-user seats.
+
+Credits must always be enforced server-side.
+
+HOW USERS USE THE PRODUCT
+
+User flow must work like this:
+
+Step 1
+User signs up and logs into Astryón.
+
+Step 2
+User selects a subscription plan and completes checkout through Paddle.
+
+Step 3
+User enters the dashboard.
+
+Step 4
+User uploads a CSV containing property data.
+
+Step 5
+User selects output mode (Concise or Detailed).
+
+Step 6
+User clicks Generate.
+
+Step 7
+AI processes the CSV rows and generates descriptions.
+
+Step 8
+User downloads generated listings as CSV.
+
+Credits decrease automatically.
+
+AI PROVIDER CONFIGURATION
+
+The AI generation system must be modular.
+
+Create an AI service module that supports multiple providers.
+
+Supported providers:
+
+Primary provider: Groq
+Optional upgrade provider: OpenAI
+
+The provider must be controlled by environment variables.
+
+Example environment variables:
+
+MODEL_PROVIDER=groq
+GROQ_API_KEY=
+OPENAI_API_KEY=
+AI_MODEL_NAME=
+
+All generation must happen server-side.
+
+Never expose API keys in frontend code.
+
+INITIAL MODEL USAGE PLAN
+
+Until the first paying user exists:
+
+All plans use Groq models to minimize cost.
+
+After the first paid user subscribes:
+
+Admin must be able to switch plan mappings:
+
+Starter → Groq
+Pro → OpenAI
+Agency → OpenAI
+
+Provide an admin panel setting to control this.
+
+PAYMENT SYSTEM
+
+Subscriptions and payments must be handled using:
+
+Paddle
+
+Paddle acts as Merchant of Record.
+
+The system must support:
+
+subscription creation
+
+subscription cancellation
+
+payment success webhooks
+
+payment failure handling
+
+monthly credit resets
+
+Implement a webhook endpoint:
+
+/webhooks/paddle
+
+Webhooks must verify Paddle signatures.
+
+IMPORTANT
+
+Product creation inside Paddle will be done manually by the founder.
+
+Replit should only build the integration logic.
+
+Environment variables required:
+
+PADDLE_VENDOR_ID
+PADDLE_API_KEY
+PADDLE_PUBLIC_KEY
+PADDLE_PRODUCT_STARTER
+PADDLE_PRODUCT_PRO
+PADDLE_PRODUCT_AGENCY
+
+After creating products in Paddle, the founder will paste the IDs here.
+
+LEGAL PAGES
+
+Create the following pages with simple URLs.
+
+Privacy Policy
+/ privacy
+
+Terms of Service
+/ terms
+
+Refund Policy
+/ refund
+
+Use the exact legal text provided.
+
+Footer must link to:
+
+Features
+Pricing
+Privacy
+Terms
+Refund
+
+REFUND POLICY RULE
+
+Refund window must be 14 days from purchase date.
+
+Payments and refunds are processed by Paddle.
+
+FEEDBACK SYSTEM
+
+Add a feedback form in the dashboard.
+
+When users submit feedback:
+
+Send notification email to
+support@astryon.in
+
+Also display feedback in admin panel.
+
+ADMIN PANEL
+
+Admin panel must include:
+
+User management
+Credit adjustments
+Subscription overview
+AI provider switching
+Feedback viewer
+Webhook event logs
+
+SECURITY
+
+Passwords must be hashed.
+
+JWT sessions for authentication.
+
+CSV uploads must be validated.
+
+Prevent prompt injection by ignoring instruction-like text in user CSV.
+
+All AI prompts must be hidden server-side.
+
+DEPLOYMENT
+
+The project will first deploy on a Replit hosted domain.
+
+Later the founder will connect the custom domain:
+
+astryon.in
+
+Do not hardcode domain values.
+
+URLs must remain relative.
+
+FINAL NOTE
+
+This application must be built as a clean, maintainable SaaS architecture with clear folder structure, documentation, and environment variable setup instructions.
+
+Provide a README explaining:
+
+required environment variables
+
+Paddle setup steps
+
+AI provider setup
+
+how to switch AI providers later
