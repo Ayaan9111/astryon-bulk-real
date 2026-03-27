@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, generationJobsTable } from "@workspace/db";
-import { eq, desc, count } from "drizzle-orm";
+import { eq, desc, count, sql } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import { generateListingDescription } from "../lib/ai.js";
 import {
@@ -22,11 +22,50 @@ router.post("/listings/generate", requireAuth, async (req, res): Promise<void> =
   const { properties, outputMode, includeSocialCaption } = parsed.data;
   const creditsNeeded = properties.length;
 
-  if (user.creditsRemaining < creditsNeeded) {
-    res.status(402).json({ error: `Insufficient credits. You need ${creditsNeeded} credits but have ${user.creditsRemaining}.` });
+  // ── Phase 1: Atomic credit check + pre-deduction ────────────────────────────
+  // Use a transaction with a row-level lock (FOR UPDATE) to prevent race
+  // conditions. Credits cannot go negative because the check and deduction
+  // happen inside the same serialized transaction.
+  let creditsAfterDeduction: number;
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Lock this user's row so no concurrent request can read/write it
+      const [lockedUser] = await tx
+        .select({ creditsRemaining: usersTable.creditsRemaining })
+        .from(usersTable)
+        .where(eq(usersTable.id, user.id))
+        .for("update");
+
+      if (!lockedUser) throw new Error("USER_NOT_FOUND");
+      if (lockedUser.creditsRemaining < creditsNeeded) throw new Error("INSUFFICIENT_CREDITS");
+
+      // Deduct atomically using SQL expression (not stale JS value)
+      const [updated] = await tx
+        .update(usersTable)
+        .set({ creditsRemaining: sql`credits_remaining - ${creditsNeeded}` })
+        .where(eq(usersTable.id, user.id))
+        .returning({ creditsRemaining: usersTable.creditsRemaining });
+
+      return updated.creditsRemaining;
+    });
+    creditsAfterDeduction = result;
+  } catch (err: any) {
+    if (err.message === "INSUFFICIENT_CREDITS") {
+      res.status(402).json({
+        error: `Not enough credits to process this file. You need ${creditsNeeded} credits but have ${user.creditsRemaining}.`,
+      });
+      return;
+    }
+    if (err.message === "USER_NOT_FOUND") {
+      res.status(401).json({ error: "User not found." });
+      return;
+    }
+    console.error("Credit deduction error:", err);
+    res.status(500).json({ error: "Failed to process credits. Please try again." });
     return;
   }
 
+  // ── Phase 2: Generation loop ─────────────────────────────────────────────────
   const listings = [];
   let succeeded = 0;
   let failed = 0;
@@ -66,22 +105,35 @@ router.post("/listings/generate", requireAuth, async (req, res): Promise<void> =
     }
   }
 
-  const newCredits = user.creditsRemaining - creditsNeeded;
-  await db.update(usersTable).set({ creditsRemaining: newCredits }).where(eq(usersTable.id, user.id));
+  // ── Phase 3: Refund credits for failed rows ──────────────────────────────────
+  // Only charge for rows that actually succeeded. Failed rows are refunded
+  // using an atomic increment to avoid stale-read issues.
+  let finalCreditsRemaining = creditsAfterDeduction;
+  if (failed > 0) {
+    const [refunded] = await db
+      .update(usersTable)
+      .set({ creditsRemaining: sql`credits_remaining + ${failed}` })
+      .where(eq(usersTable.id, user.id))
+      .returning({ creditsRemaining: usersTable.creditsRemaining });
+    finalCreditsRemaining = refunded.creditsRemaining;
+  }
 
+  const creditsUsed = succeeded; // Only succeeded rows are charged
+
+  // ── Phase 4: Persist the job record ──────────────────────────────────────────
   const [job] = await db.insert(generationJobsTable).values({
     userId: user.id,
     outputMode,
     listingCount: properties.length,
-    creditsUsed: creditsNeeded,
+    creditsUsed,
     results: listings,
   }).returning();
 
   res.json({
     jobId: job.id,
     listings,
-    creditsUsed: creditsNeeded,
-    creditsRemaining: newCredits,
+    creditsUsed,
+    creditsRemaining: finalCreditsRemaining,
     succeeded,
     failed,
   });

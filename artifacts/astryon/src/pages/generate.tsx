@@ -42,7 +42,7 @@ export default function Generate() {
   const [outputMode, setOutputMode] = useState<"concise" | "detailed">("detailed");
   const [includeSocial, setIncludeSocial] = useState(true);
   const [results, setResults] = useState<any[] | null>(null);
-  const [stats, setStats] = useState<{ succeeded: number; failed: number } | null>(null);
+  const [stats, setStats] = useState<{ succeeded: number; failed: number; creditsUsed: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -51,17 +51,18 @@ export default function Generate() {
     mutation: {
       onSuccess: (data) => {
         setResults(data.listings);
-        setStats({ succeeded: data.succeeded, failed: data.failed });
-        const desc = data.failed > 0
-          ? `${data.succeeded} succeeded, ${data.failed} failed. ${data.creditsUsed} credits used.`
-          : `${data.succeeded} listings generated. ${data.creditsUsed} credits used.`;
-        toast({ title: "Generation complete", description: desc });
+        setStats({ succeeded: data.succeeded, failed: data.failed, creditsUsed: data.creditsUsed });
+        toast({
+          title: "Generation complete",
+          description: `${data.succeeded} succeeded, ${data.failed} failed · ${data.creditsUsed} credits used`,
+        });
       },
       onError: (err: any) => {
+        const msg = (err as any)?.data?.error || (err as any)?.message || "Unknown error occurred";
         toast({
           variant: "destructive",
           title: "Generation failed",
-          description: err.response?.data?.error || "Unknown error occurred",
+          description: msg,
         });
       },
     },
@@ -305,16 +306,25 @@ export default function Generate() {
                 <div>
                   <h3 className="font-bold text-lg">Results Preview</h3>
                   {stats && (
-                    <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
-                      <span className="flex items-center gap-1 text-green-400">
-                        <CheckCircle2 className="w-3 h-3" /> {stats.succeeded} succeeded
-                      </span>
-                      {stats.failed > 0 && (
-                        <span className="flex items-center gap-1 text-red-400">
-                          <XCircle className="w-3 h-3" /> {stats.failed} failed
+                    <div className="flex flex-col gap-0.5 mt-0.5">
+                      <p className="text-xs text-muted-foreground flex items-center gap-3">
+                        <span className="flex items-center gap-1 text-green-400">
+                          <CheckCircle2 className="w-3 h-3" /> {stats.succeeded} succeeded
                         </span>
-                      )}
-                    </p>
+                        {stats.failed > 0 ? (
+                          <span className="flex items-center gap-1 text-red-400">
+                            <XCircle className="w-3 h-3" /> {stats.failed} failed
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-muted-foreground">
+                            <XCircle className="w-3 h-3" /> 0 failed
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-xs text-primary font-medium">
+                        {stats.creditsUsed} credit{stats.creditsUsed !== 1 ? "s" : ""} used
+                      </p>
+                    </div>
                   )}
                 </div>
                 {results && (
