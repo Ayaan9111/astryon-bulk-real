@@ -110,6 +110,36 @@ function parseResponse(text: string, includeSocial: boolean): { longDescription:
   };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callWithRetry(fn: () => Promise<string>, maxRetries = 4): Promise<string> {
+  let lastError: any;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      lastError = err;
+      const isRateLimit =
+        err?.status === 429 ||
+        err?.error?.type === "rate_limit_exceeded" ||
+        String(err?.message || "").toLowerCase().includes("rate limit") ||
+        String(err?.message || "").toLowerCase().includes("rate_limit");
+
+      if (isRateLimit && attempt < maxRetries) {
+        // Exponential backoff: 1 s, 2 s, 4 s, 8 s
+        const waitMs = Math.pow(2, attempt) * 1000;
+        console.warn(`Groq rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${waitMs}ms…`);
+        await sleep(waitMs);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 export async function generateListingDescription(
   property: PropertyInput,
   outputMode: string,
@@ -123,20 +153,22 @@ export async function generateListingDescription(
   if (provider === "openai") {
     const OpenAI = (await import("openai")).default;
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const completion = await openai.chat.completions.create({
-      model: process.env.AI_MODEL_NAME || "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-    });
-    responseText = completion.choices[0]?.message?.content || "";
+    responseText = await callWithRetry(() =>
+      openai.chat.completions.create({
+        model: process.env.AI_MODEL_NAME || "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+      }).then((c) => c.choices[0]?.message?.content || "")
+    );
   } else {
     const groq = getGroqClient();
-    const completion = await groq.chat.completions.create({
-      model: model || "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-    });
-    responseText = completion.choices[0]?.message?.content || "";
+    responseText = await callWithRetry(() =>
+      groq.chat.completions.create({
+        model: model || "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+      }).then((c) => c.choices[0]?.message?.content || "")
+    );
   }
 
   const parsed = parseResponse(responseText, includeSocial);
