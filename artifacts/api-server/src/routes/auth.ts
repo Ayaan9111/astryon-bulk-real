@@ -50,8 +50,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     fullName,
     role: "user",
     plan: "free",
-    creditsRemaining: 0,
-    creditsTotal: 0,
+    creditsRemaining: 10,
+    creditsTotal: 10,
   }).returning();
 
   const token = signToken(user.id);
