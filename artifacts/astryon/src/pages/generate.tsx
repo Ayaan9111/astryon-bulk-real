@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import {
   Upload, FileText, CheckCircle2, AlertCircle, Settings2,
   Download, Sparkles, XCircle, FileDown
 } from "lucide-react";
-import { useGenerateListings } from "@workspace/api-client-react";
+import { useGenerateListings, getGetMeQueryKey } from "@workspace/api-client-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
 import { downloadCSV } from "@/lib/utils";
@@ -46,12 +47,15 @@ export default function Generate() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { mutate: generate, isPending } = useGenerateListings({
     mutation: {
       onSuccess: (data) => {
         setResults(data.listings);
         setStats({ succeeded: data.succeeded, failed: data.failed, creditsUsed: data.creditsUsed });
+        // Refresh the user profile so the sidebar credit balance updates immediately
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         toast({
           title: "Generation complete",
           description: `${data.succeeded} succeeded, ${data.failed} failed · ${data.creditsUsed} credits used`,
