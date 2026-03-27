@@ -30,12 +30,11 @@ export interface PropertyInput {
   propertyType?: string | null;
   bedrooms?: string | null;
   bathrooms?: string | null;
-  area?: string | null;
+  areaSqft?: string | null;
   location?: string | null;
   price?: string | null;
   amenities?: string | null;
   nearbyLandmarks?: string | null;
-  additionalNotes?: string | null;
 }
 
 export interface GeneratedListing {
@@ -43,38 +42,60 @@ export interface GeneratedListing {
   longDescription: string;
   shortDescription: string;
   socialCaption: string | null;
+  failed: boolean;
+}
+
+function buildPropertyData(property: PropertyInput): string {
+  return [
+    property.propertyTitle && `Property Title: ${property.propertyTitle}`,
+    property.propertyType && `Property Type: ${property.propertyType}`,
+    property.location && `Location: ${property.location}`,
+    property.price && `Price: ${property.price}`,
+    property.bedrooms && `Bedrooms: ${property.bedrooms}`,
+    property.bathrooms && `Bathrooms: ${property.bathrooms}`,
+    property.areaSqft && `Area (sqft): ${property.areaSqft}`,
+    property.amenities && `Amenities: ${property.amenities}`,
+    property.nearbyLandmarks && `Nearby Landmarks: ${property.nearbyLandmarks}`,
+  ].filter(Boolean).join("\n");
 }
 
 function buildPrompt(property: PropertyInput, outputMode: string, includeSocial: boolean): string {
-  const details = [
-    property.propertyTitle && `Property: ${property.propertyTitle}`,
-    property.propertyType && `Type: ${property.propertyType}`,
-    property.bedrooms && `Bedrooms: ${property.bedrooms}`,
-    property.bathrooms && `Bathrooms: ${property.bathrooms}`,
-    property.area && `Area: ${property.area}`,
-    property.location && `Location: ${property.location}`,
-    property.price && `Price: ${property.price}`,
-    property.amenities && `Amenities: ${property.amenities}`,
-    property.nearbyLandmarks && `Nearby Landmarks: ${property.nearbyLandmarks}`,
-    property.additionalNotes && `Additional Notes: ${property.additionalNotes}`,
-  ].filter(Boolean).join("\n");
+  const propertyData = buildPropertyData(property);
 
-  const lengthInstruction = outputMode === "concise"
-    ? "Write a short, structured professional paragraph (80-120 words)."
-    : "Write a longer, descriptive professional paragraph (200-300 words).";
-
-  const socialInstruction = includeSocial
-    ? "\n\nSOCIAL_CAPTION: Write a single engaging social media caption (max 280 characters) for this property. No hashtags."
+  const socialSection = includeSocial
+    ? "\n\n3. SOCIAL CAPTION (if enabled):\nA short, engaging but still professional caption."
     : "";
 
-  return `You are a professional real estate copywriter. Generate factual, structured listing descriptions based ONLY on the provided data. Do not exaggerate or add details not in the data.
+  const socialOutput = includeSocial
+    ? "\nSOCIAL_CAPTION: [social caption here]"
+    : "";
 
-PROPERTY DATA:
-${details}
+  return `You are a professional real estate copywriter.
 
-OUTPUT FORMAT (respond with EXACTLY this structure, no extra text):
-LONG_DESCRIPTION: [${lengthInstruction}]
-SHORT_DESCRIPTION: [Write a concise portal-ready description in 1-2 sentences, max 60 words.]${socialInstruction}`;
+Your task is to generate a clean, factual, and professional property listing description based ONLY on the provided data.
+
+Rules:
+- Do NOT invent or assume any information not provided.
+- Do NOT use storytelling, emotional exaggeration, or luxury buzzwords.
+- Keep tone professional, clear, and suitable for real estate portals.
+- Use a structured paragraph format.
+- Mention key details like property type, location, size, configuration, and important amenities.
+- If certain fields are missing, simply ignore them. Do not fill gaps.
+
+Output formats:
+
+1. LONG DESCRIPTION:
+A detailed, well-structured paragraph suitable for SEO and property listings${outputMode === "concise" ? " (80-120 words)" : " (200-300 words)"}.
+
+2. SHORT DESCRIPTION:
+A concise version (2–3 lines) suitable for listing platforms.${socialSection}
+
+Input data:
+${propertyData}
+
+Generate output in clean structured text using EXACTLY this format:
+LONG_DESCRIPTION: [long description here]
+SHORT_DESCRIPTION: [short description here]${socialOutput}`;
 }
 
 function parseResponse(text: string, includeSocial: boolean): { longDescription: string; shortDescription: string; socialCaption: string | null } {
@@ -83,8 +104,8 @@ function parseResponse(text: string, includeSocial: boolean): { longDescription:
   const socialMatch = text.match(/SOCIAL_CAPTION:\s*([\s\S]*?)$/);
 
   return {
-    longDescription: longMatch?.[1]?.trim() || text.slice(0, 500).trim(),
-    shortDescription: shortMatch?.[1]?.trim() || text.slice(0, 100).trim(),
+    longDescription: longMatch?.[1]?.trim() || text.slice(0, 600).trim(),
+    shortDescription: shortMatch?.[1]?.trim() || text.slice(0, 150).trim(),
     socialCaption: includeSocial && socialMatch ? socialMatch[1].trim() : null,
   };
 }
@@ -96,9 +117,7 @@ export async function generateListingDescription(
   userPlan: string
 ): Promise<GeneratedListing> {
   const { provider, model } = getModelForPlan(userPlan);
-
   const prompt = buildPrompt(property, outputMode, includeSocial);
-
   let responseText = "";
 
   if (provider === "openai") {
@@ -113,7 +132,7 @@ export async function generateListingDescription(
   } else {
     const groq = getGroqClient();
     const completion = await groq.chat.completions.create({
-      model: model || "llama-3.1-70b-versatile",
+      model: model || "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.4,
     });
@@ -125,5 +144,6 @@ export async function generateListingDescription(
   return {
     propertyTitle: property.propertyTitle || "Unnamed Property",
     ...parsed,
+    failed: false,
   };
 }

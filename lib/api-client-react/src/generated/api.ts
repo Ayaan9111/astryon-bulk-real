@@ -18,16 +18,17 @@ import type {
 
 import type {
   AdjustCreditsBody,
+  AdminAdjustCreditsResponse,
   AdminFeedbackResponse,
   AdminGetUsersParams,
   AdminSettings,
   AdminSettingsBody,
   AdminStats,
   AdminUsersResponse,
-  AuthResponse,
+  CancelSubscriptionResponse,
   ChangePasswordBody,
-  CheckoutResponse,
   CreateCheckoutBody,
+  CreateCheckoutResponse,
   ErrorResponse,
   FeedbackBody,
   GenerateListingsBody,
@@ -37,7 +38,10 @@ import type {
   GetGenerationHistoryParams,
   HealthStatus,
   LoginBody,
+  LoginResponse,
+  LogoutResponse,
   PaddleWebhookBody,
+  PaddleWebhookResponse,
   PlansResponse,
   RegisterBody,
   SuccessResponse,
@@ -140,8 +144,8 @@ export const getRegisterUrl = () => {
 export const register = async (
   registerBody: RegisterBody,
   options?: RequestInit,
-): Promise<AuthResponse> => {
-  return customFetch<AuthResponse>(getRegisterUrl(), {
+): Promise<LoginResponse> => {
+  return customFetch<LoginResponse>(getRegisterUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -226,8 +230,8 @@ export const getLoginUrl = () => {
 export const login = async (
   loginBody: LoginBody,
   options?: RequestInit,
-): Promise<AuthResponse> => {
-  return customFetch<AuthResponse>(getLoginUrl(), {
+): Promise<LoginResponse> => {
+  return customFetch<LoginResponse>(getLoginUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -311,8 +315,8 @@ export const getLogoutUrl = () => {
 
 export const logout = async (
   options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getLogoutUrl(), {
+): Promise<LogoutResponse> => {
+  return customFetch<LogoutResponse>(getLogoutUrl(), {
     ...options,
     method: "POST",
   });
@@ -971,8 +975,8 @@ export const getCreateCheckoutUrl = () => {
 export const createCheckout = async (
   createCheckoutBody: CreateCheckoutBody,
   options?: RequestInit,
-): Promise<CheckoutResponse> => {
-  return customFetch<CheckoutResponse>(getCreateCheckoutUrl(), {
+): Promise<CreateCheckoutResponse> => {
+  return customFetch<CreateCheckoutResponse>(getCreateCheckoutUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -1056,8 +1060,8 @@ export const getCancelSubscriptionUrl = () => {
 
 export const cancelSubscription = async (
   options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getCancelSubscriptionUrl(), {
+): Promise<CancelSubscriptionResponse> => {
+  return customFetch<CancelSubscriptionResponse>(getCancelSubscriptionUrl(), {
     ...options,
     method: "POST",
   });
@@ -1138,8 +1142,8 @@ export const getPaddleWebhookUrl = () => {
 export const paddleWebhook = async (
   paddleWebhookBody: PaddleWebhookBody,
   options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getPaddleWebhookUrl(), {
+): Promise<PaddleWebhookResponse> => {
+  return customFetch<PaddleWebhookResponse>(getPaddleWebhookUrl(), {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },
@@ -1405,8 +1409,8 @@ export const adminAdjustCredits = async (
   id: number,
   adjustCreditsBody: AdjustCreditsBody,
   options?: RequestInit,
-): Promise<SuccessResponse> => {
-  return customFetch<SuccessResponse>(getAdminAdjustCreditsUrl(id), {
+): Promise<AdminAdjustCreditsResponse> => {
+  return customFetch<AdminAdjustCreditsResponse>(getAdminAdjustCreditsUrl(id), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },

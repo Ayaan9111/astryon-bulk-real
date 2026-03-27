@@ -1,12 +1,11 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, generationJobsTable } from "@workspace/db";
-import { eq, desc, count, sql } from "drizzle-orm";
+import { eq, desc, count } from "drizzle-orm";
 import { requireAuth } from "../lib/auth.js";
 import { generateListingDescription } from "../lib/ai.js";
 import {
   GenerateListingsBody,
   GetGenerationHistoryQueryParams,
-  GetGenerationJobParams,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
@@ -29,18 +28,20 @@ router.post("/listings/generate", requireAuth, async (req, res): Promise<void> =
   }
 
   const listings = [];
+  let succeeded = 0;
+  let failed = 0;
+
   for (const property of properties) {
     const sanitized = {
       propertyTitle: sanitizeInput(property.propertyTitle),
       propertyType: sanitizeInput(property.propertyType),
       bedrooms: sanitizeInput(property.bedrooms),
       bathrooms: sanitizeInput(property.bathrooms),
-      area: sanitizeInput(property.area),
+      areaSqft: sanitizeInput(property.areaSqft),
       location: sanitizeInput(property.location),
       price: sanitizeInput(property.price),
       amenities: sanitizeInput(property.amenities),
       nearbyLandmarks: sanitizeInput(property.nearbyLandmarks),
-      additionalNotes: sanitizeInput(property.additionalNotes),
     };
 
     try {
@@ -50,15 +51,18 @@ router.post("/listings/generate", requireAuth, async (req, res): Promise<void> =
         includeSocialCaption || false,
         user.plan
       );
-      listings.push(generated);
+      listings.push({ ...generated, failed: false });
+      succeeded++;
     } catch (err) {
-      console.error("AI generation error:", err);
+      console.error("AI generation error for property:", property.propertyTitle, err);
       listings.push({
         propertyTitle: property.propertyTitle || "Unknown Property",
         longDescription: "Description generation failed. Please try again.",
         shortDescription: "Generation failed.",
         socialCaption: null,
+        failed: true,
       });
+      failed++;
     }
   }
 
@@ -78,6 +82,8 @@ router.post("/listings/generate", requireAuth, async (req, res): Promise<void> =
     listings,
     creditsUsed: creditsNeeded,
     creditsRemaining: newCredits,
+    succeeded,
+    failed,
   });
 });
 

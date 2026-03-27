@@ -12,4 +12,6 @@ export interface GenerateListingsResponse {
   listings: GeneratedListing[];
   creditsUsed: number;
   creditsRemaining: number;
+  succeeded: number;
+  failed: number;
 }

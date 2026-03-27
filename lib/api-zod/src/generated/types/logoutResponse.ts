@@ -5,9 +5,7 @@
  * Astryón Bulk Real Estate Listing Ops API
  * OpenAPI spec version: 0.1.0
  */
-import type { UserProfile } from "./userProfile";
 
-export interface AuthResponse {
-  token: string;
-  user: UserProfile;
+export interface LogoutResponse {
+  message: string;
 }

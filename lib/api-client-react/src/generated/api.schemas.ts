@@ -43,9 +43,28 @@ export interface UserProfile {
   createdAt: string;
 }
 
-export interface AuthResponse {
+export interface LoginResponse {
   token: string;
   user: UserProfile;
+}
+
+export interface LogoutResponse {
+  message: string;
+}
+
+export interface GetMeResponse {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  plan: string;
+  creditsRemaining: number;
+  creditsTotal: number;
+  /** @nullable */
+  subscriptionStatus: string | null;
+  /** @nullable */
+  subscriptionId: string | null;
+  createdAt: string;
 }
 
 export interface UpdateProfileBody {
@@ -53,14 +72,32 @@ export interface UpdateProfileBody {
   email?: string;
 }
 
+export interface UpdateProfileResponse {
+  id: number;
+  email: string;
+  fullName: string;
+  role: string;
+  plan: string;
+  creditsRemaining: number;
+  creditsTotal: number;
+  /** @nullable */
+  subscriptionStatus: string | null;
+  /** @nullable */
+  subscriptionId: string | null;
+  createdAt: string;
+}
+
 export interface ChangePasswordBody {
   currentPassword: string;
   newPassword: string;
 }
 
+export interface ChangePasswordResponse {
+  message: string;
+}
+
 export interface PropertyRow {
-  /** @nullable */
-  propertyTitle: string | null;
+  propertyTitle: string;
   /** @nullable */
   propertyType?: string | null;
   /** @nullable */
@@ -68,17 +105,13 @@ export interface PropertyRow {
   /** @nullable */
   bathrooms?: string | null;
   /** @nullable */
-  area?: string | null;
-  /** @nullable */
-  location?: string | null;
-  /** @nullable */
-  price?: string | null;
+  areaSqft?: string | null;
+  location: string;
+  price: string;
   /** @nullable */
   amenities?: string | null;
   /** @nullable */
   nearbyLandmarks?: string | null;
-  /** @nullable */
-  additionalNotes?: string | null;
 }
 
 export type GenerateListingsBodyOutputMode =
@@ -101,6 +134,7 @@ export interface GeneratedListing {
   shortDescription: string;
   /** @nullable */
   socialCaption: string | null;
+  failed: boolean;
 }
 
 export interface GenerateListingsResponse {
@@ -108,6 +142,8 @@ export interface GenerateListingsResponse {
   listings: GeneratedListing[];
   creditsUsed: number;
   creditsRemaining: number;
+  succeeded: number;
+  failed: number;
 }
 
 export interface GenerationJobSummary {
@@ -154,8 +190,16 @@ export interface CreateCheckoutBody {
   planId: string;
 }
 
-export interface CheckoutResponse {
+export interface CreateCheckoutResponse {
   checkoutUrl: string;
+}
+
+export interface CancelSubscriptionResponse {
+  message: string;
+}
+
+export interface PaddleWebhookResponse {
+  message: string;
 }
 
 export type FeedbackBodyType =
@@ -196,6 +240,10 @@ export interface AdjustCreditsBody {
   reason?: string;
 }
 
+export interface AdminAdjustCreditsResponse {
+  message: string;
+}
+
 export interface FeedbackItem {
   id: number;
   userId: number;
@@ -224,6 +272,22 @@ export interface AdminSettingsBody {
   starterProvider?: string;
   proProvider?: string;
   agencyProvider?: string;
+}
+
+export interface AdminGetSettingsResponse {
+  modelProvider: string;
+  aiModelName: string;
+  starterProvider: string;
+  proProvider: string;
+  agencyProvider: string;
+}
+
+export interface AdminUpdateSettingsResponse {
+  modelProvider: string;
+  aiModelName: string;
+  starterProvider: string;
+  proProvider: string;
+  agencyProvider: string;
 }
 
 export interface WebhookLog {

@@ -55,7 +55,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                $ref: "#/components/schemas/LoginResponse"
         "400":
           description: Validation error
           content:
@@ -86,7 +86,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AuthResponse"
+                $ref: "#/components/schemas/LoginResponse"
         "401":
           description: Invalid credentials
           content:
@@ -105,7 +105,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/LogoutResponse"
 
   /auth/me:
     get:
@@ -302,7 +302,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CheckoutResponse"
+                $ref: "#/components/schemas/CreateCheckoutResponse"
         "401":
           description: Unauthorized
           content:
@@ -321,7 +321,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/CancelSubscriptionResponse"
         "401":
           description: Unauthorized
           content:
@@ -346,7 +346,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/PaddleWebhookResponse"
 
   /feedback:
     post:
@@ -428,7 +428,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/AdminAdjustCreditsResponse"
         "403":
           description: Forbidden
           content:
@@ -586,7 +586,43 @@ components:
         - email
         - password
 
-    AuthResponse:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+        plan:
+          type: string
+        creditsRemaining:
+          type: integer
+        creditsTotal:
+          type: integer
+        subscriptionStatus:
+          type: ["string", "null"]
+        subscriptionId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - role
+        - plan
+        - creditsRemaining
+        - creditsTotal
+        - subscriptionStatus
+        - subscriptionId
+        - createdAt
+
+    LoginResponse:
       type: object
       properties:
         token:
@@ -597,7 +633,15 @@ components:
         - token
         - user
 
-    UserProfile:
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    GetMeResponse:
       type: object
       properties:
         id:
@@ -641,6 +685,42 @@ components:
         email:
           type: string
 
+    UpdateProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+        plan:
+          type: string
+        creditsRemaining:
+          type: integer
+        creditsTotal:
+          type: integer
+        subscriptionStatus:
+          type: ["string", "null"]
+        subscriptionId:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - fullName
+        - role
+        - plan
+        - creditsRemaining
+        - creditsTotal
+        - subscriptionStatus
+        - subscriptionId
+        - createdAt
+
     ChangePasswordBody:
       type: object
       properties:
@@ -652,31 +732,39 @@ components:
         - currentPassword
         - newPassword
 
+    ChangePasswordResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
     PropertyRow:
       type: object
       properties:
         propertyTitle:
-          type: ["string", "null"]
+          type: string
         propertyType:
           type: ["string", "null"]
         bedrooms:
           type: ["string", "null"]
         bathrooms:
           type: ["string", "null"]
-        area:
+        areaSqft:
           type: ["string", "null"]
         location:
-          type: ["string", "null"]
+          type: string
         price:
-          type: ["string", "null"]
+          type: string
         amenities:
           type: ["string", "null"]
         nearbyLandmarks:
           type: ["string", "null"]
-        additionalNotes:
-          type: ["string", "null"]
       required:
         - propertyTitle
+        - location
+        - price
 
     GenerateListingsBody:
       type: object
@@ -705,11 +793,14 @@ components:
           type: string
         socialCaption:
           type: ["string", "null"]
+        failed:
+          type: boolean
       required:
         - propertyTitle
         - longDescription
         - shortDescription
         - socialCaption
+        - failed
 
     GenerateListingsResponse:
       type: object
@@ -724,11 +815,17 @@ components:
           type: integer
         creditsRemaining:
           type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
       required:
         - jobId
         - listings
         - creditsUsed
         - creditsRemaining
+        - succeeded
+        - failed
 
     GenerationJobSummary:
       type: object
@@ -845,13 +942,29 @@ components:
       required:
         - planId
 
-    CheckoutResponse:
+    CreateCheckoutResponse:
       type: object
       properties:
         checkoutUrl:
           type: string
       required:
         - checkoutUrl
+
+    CancelSubscriptionResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    PaddleWebhookResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
 
     FeedbackBody:
       type: object
@@ -924,6 +1037,14 @@ components:
       required:
         - credits
 
+    AdminAdjustCreditsResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
     FeedbackItem:
       type: object
       properties:
@@ -994,6 +1115,46 @@ components:
           type: string
         agencyProvider:
           type: string
+
+    AdminGetSettingsResponse:
+      type: object
+      properties:
+        modelProvider:
+          type: string
+        aiModelName:
+          type: string
+        starterProvider:
+          type: string
+        proProvider:
+          type: string
+        agencyProvider:
+          type: string
+      required:
+        - modelProvider
+        - aiModelName
+        - starterProvider
+        - proProvider
+        - agencyProvider
+
+    AdminUpdateSettingsResponse:
+      type: object
+      properties:
+        modelProvider:
+          type: string
+        aiModelName:
+          type: string
+        starterProvider:
+          type: string
+        proProvider:
+          type: string
+        agencyProvider:
+          type: string
+      required:
+        - modelProvider
+        - aiModelName
+        - starterProvider
+        - proProvider
+        - agencyProvider
 
     WebhookLog:
       type: object

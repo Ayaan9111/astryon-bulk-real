@@ -1,0 +1,106 @@
+Update the CSV upload and AI generation system with the following behavior:
+
+1. CSV REQUIREMENTS
+
+Enforce that uploaded CSV must include these required columns:
+- property_title
+- location
+- price
+
+Optional columns:
+- bedrooms
+- bathrooms
+- area_sqft
+- property_type
+- amenities
+- nearby_landmarks
+
+If required columns are missing:
+Show a clear error message:
+"CSV must include required columns: property_title, location, price"
+
+Also normalize column names:
+- convert to lowercase
+- trim spaces
+
+Example:
+"Property Title" → "property title"
+
+2. SAMPLE CSV DOWNLOAD
+
+Add a "Download Sample CSV" button that downloads a correct template file with proper column names.
+
+3. CSV PROCESSING LOGIC
+
+When a CSV is uploaded:
+
+- Parse all rows
+- Convert each row into a JSON object
+- Store all rows in an array
+
+Example:
+[
+ { property_title: "...", location: "...", price: "..." },
+ { property_title: "...", location: "...", price: "..." }
+]
+
+4. AI GENERATION LOOP
+
+When user clicks "Generate Descriptions":
+
+- Loop through each row
+- Send each row individually to the AI
+- Deduct 1 credit per row
+- If a row fails, skip it and continue processing others
+
+5. AI PROMPT (USE EXACTLY THIS)
+
+You are a professional real estate copywriter.
+
+Your task is to generate a clean, factual, and professional property listing description based ONLY on the provided data.
+
+Rules:
+- Do NOT invent or assume any information not provided.
+- Do NOT use storytelling, emotional exaggeration, or luxury buzzwords.
+- Keep tone professional, clear, and suitable for real estate portals.
+- Use a structured paragraph format.
+- Mention key details like property type, location, size, configuration, and important amenities.
+- If certain fields are missing, simply ignore them. Do not fill gaps.
+
+Output formats:
+
+1. LONG DESCRIPTION:
+A detailed, well-structured paragraph suitable for SEO and property listings.
+
+2. SHORT DESCRIPTION:
+A concise version (2–3 lines) suitable for listing platforms.
+
+3. SOCIAL CAPTION (if enabled):
+A short, engaging but still professional caption.
+
+Input data:
+{{property_data}}
+
+Generate output in clean structured text.
+
+6. OUTPUT HANDLING
+
+- Collect all generated outputs into an array
+- Display results in the UI
+- Show loading/progress indicator while generating
+
+7. EXPORT FEATURE
+
+Add a "Download Results CSV" button.
+
+Output CSV must include:
+
+property_title  
+long_description  
+short_description  
+social_caption
+
+8. ERROR HANDLING
+
+- If one row fails → skip and continue
+- Show how many succeeded vs failed

@@ -109,16 +109,15 @@ export const ChangePasswordResponse = zod.object({
 export const GenerateListingsBody = zod.object({
   properties: zod.array(
     zod.object({
-      propertyTitle: zod.string().nullable(),
+      propertyTitle: zod.string(),
       propertyType: zod.string().nullish(),
       bedrooms: zod.string().nullish(),
       bathrooms: zod.string().nullish(),
-      area: zod.string().nullish(),
-      location: zod.string().nullish(),
-      price: zod.string().nullish(),
+      areaSqft: zod.string().nullish(),
+      location: zod.string(),
+      price: zod.string(),
       amenities: zod.string().nullish(),
       nearbyLandmarks: zod.string().nullish(),
-      additionalNotes: zod.string().nullish(),
     }),
   ),
   outputMode: zod.enum(["concise", "detailed"]),
@@ -133,10 +132,13 @@ export const GenerateListingsResponse = zod.object({
       longDescription: zod.string(),
       shortDescription: zod.string(),
       socialCaption: zod.string().nullable(),
+      failed: zod.boolean(),
     }),
   ),
   creditsUsed: zod.number(),
   creditsRemaining: zod.number(),
+  succeeded: zod.number(),
+  failed: zod.number(),
 });
 
 /**
@@ -181,6 +183,7 @@ export const GetGenerationJobResponse = zod.object({
       longDescription: zod.string(),
       shortDescription: zod.string(),
       socialCaption: zod.string().nullable(),
+      failed: zod.boolean(),
     }),
   ),
 });

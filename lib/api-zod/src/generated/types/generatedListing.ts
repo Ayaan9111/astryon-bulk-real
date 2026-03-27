@@ -12,4 +12,5 @@ export interface GeneratedListing {
   shortDescription: string;
   /** @nullable */
   socialCaption: string | null;
+  failed: boolean;
 }

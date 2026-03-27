@@ -7,8 +7,7 @@
  */
 
 export interface PropertyRow {
-  /** @nullable */
-  propertyTitle: string | null;
+  propertyTitle: string;
   /** @nullable */
   propertyType?: string | null;
   /** @nullable */
@@ -16,15 +15,11 @@ export interface PropertyRow {
   /** @nullable */
   bathrooms?: string | null;
   /** @nullable */
-  area?: string | null;
-  /** @nullable */
-  location?: string | null;
-  /** @nullable */
-  price?: string | null;
+  areaSqft?: string | null;
+  location: string;
+  price: string;
   /** @nullable */
   amenities?: string | null;
   /** @nullable */
   nearbyLandmarks?: string | null;
-  /** @nullable */
-  additionalNotes?: string | null;
 }
