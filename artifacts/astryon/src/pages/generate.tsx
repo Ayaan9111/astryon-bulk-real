@@ -7,14 +7,12 @@ import {
   Upload, FileText, CheckCircle2, AlertCircle, Settings2,
   Download, Sparkles, XCircle, FileDown
 } from "lucide-react";
-import { useGenerateListings, getGetMeQueryKey } from "@workspace/api-client-react";
+import { generateListings, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
 import { downloadCSV } from "@/lib/utils";
 
 const REQUIRED_COLUMNS = ["property_title", "location", "price"];
-const OPTIONAL_COLUMNS = ["bedrooms", "bathrooms", "area_sqft", "property_type", "amenities", "nearby_landmarks"];
-const ALL_COLUMNS = [...REQUIRED_COLUMNS, ...OPTIONAL_COLUMNS];
 
 const SAMPLE_CSV = `property_title,location,price,bedrooms,bathrooms,area_sqft,property_type,amenities,nearby_landmarks
 Riverside Apartment,Madrid - Retiro District,€320000,2,1,75,Apartment,Pool; Gym; Parking,Retiro Park; Atocha Station
@@ -44,33 +42,14 @@ export default function Generate() {
   const [includeSocial, setIncludeSocial] = useState(true);
   const [results, setResults] = useState<any[] | null>(null);
   const [stats, setStats] = useState<{ succeeded: number; failed: number; creditsUsed: number } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  const { mutate: generate, isPending } = useGenerateListings({
-    mutation: {
-      onSuccess: (data) => {
-        setResults(data.listings);
-        setStats({ succeeded: data.succeeded, failed: data.failed, creditsUsed: data.creditsUsed });
-        // Refresh the user profile so the sidebar credit balance updates immediately
-        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        toast({
-          title: "Generation complete",
-          description: `${data.succeeded} succeeded, ${data.failed} failed · ${data.creditsUsed} credits used`,
-        });
-      },
-      onError: (err: any) => {
-        const msg = (err as any)?.data?.error || (err as any)?.message || "Unknown error occurred";
-        toast({
-          variant: "destructive",
-          title: "Generation failed",
-          description: msg,
-        });
-      },
-    },
-  });
+  const { data: user } = useGetMe();
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -95,11 +74,9 @@ export default function Generate() {
           setFile(null);
           return;
         }
-
         const normalized = rawRows.map(normalizeCols);
         const headers = Object.keys(normalized[0] || {});
         const missing = REQUIRED_COLUMNS.filter((col) => !headers.includes(col));
-
         if (missing.length > 0) {
           toast({
             variant: "destructive",
@@ -109,7 +86,6 @@ export default function Generate() {
           setFile(null);
           return;
         }
-
         setParsedRows(normalized);
         toast({ title: "CSV loaded", description: `${normalized.length} rows ready to generate.` });
       },
@@ -120,27 +96,89 @@ export default function Generate() {
     });
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (parsedRows.length === 0) return;
 
-    const properties = parsedRows.map((row) => ({
-      propertyTitle: row["property_title"] || "Unnamed Property",
-      location: row["location"] || "",
-      price: row["price"] || "",
-      bedrooms: row["bedrooms"] || null,
-      bathrooms: row["bathrooms"] || null,
-      areaSqft: row["area_sqft"] || null,
-      propertyType: row["property_type"] || null,
-      amenities: row["amenities"] || null,
-      nearbyLandmarks: row["nearby_landmarks"] || null,
-    }));
+    // ── Client-side credit guard ──────────────────────────────────────────────
+    const userCredits = user?.creditsRemaining ?? 0;
+    if (parsedRows.length > userCredits) {
+      toast({
+        variant: "destructive",
+        title: "Not enough credits",
+        description: `You need ${parsedRows.length} credits but only have ${userCredits} credits`,
+      });
+      return;
+    }
 
-    generate({
-      data: {
-        properties,
-        outputMode,
-        includeSocialCaption: includeSocial,
-      },
+    // ── Start generation loop ─────────────────────────────────────────────────
+    setIsGenerating(true);
+    setResults(null);
+    setStats(null);
+    setProgress({ current: 0, total: parsedRows.length });
+    abortRef.current = false;
+
+    const allResults: any[] = [];
+    let succeeded = 0;
+    let failed = 0;
+    let creditsUsed = 0;
+
+    for (let i = 0; i < parsedRows.length; i++) {
+      if (abortRef.current) break;
+
+      const row = parsedRows[i];
+      const property = {
+        propertyTitle: row["property_title"] || "Unnamed Property",
+        location: row["location"] || "",
+        price: row["price"] || "",
+        bedrooms: row["bedrooms"] || null,
+        bathrooms: row["bathrooms"] || null,
+        areaSqft: row["area_sqft"] || null,
+        propertyType: row["property_type"] || null,
+        amenities: row["amenities"] || null,
+        nearbyLandmarks: row["nearby_landmarks"] || null,
+      };
+
+      try {
+        const res = await generateListings({
+          data: { properties: [property], outputMode, includeSocialCaption: includeSocial },
+        });
+        const listing = res.listings[0];
+        allResults.push(listing);
+        if (listing?.failed) {
+          failed++;
+        } else {
+          succeeded++;
+          creditsUsed += res.creditsUsed;
+        }
+      } catch (err: any) {
+        const errMsg = err?.data?.error || err?.message || "Generation failed";
+        if (errMsg.toLowerCase().includes("not enough credits") || errMsg.toLowerCase().includes("insufficient")) {
+          toast({ variant: "destructive", title: "Out of credits", description: errMsg });
+          abortRef.current = true;
+        }
+        allResults.push({
+          propertyTitle: property.propertyTitle,
+          longDescription: "",
+          shortDescription: "Generation failed.",
+          socialCaption: null,
+          failed: true,
+        });
+        failed++;
+      }
+
+      // Update progress and show live partial results after each row
+      setProgress({ current: i + 1, total: parsedRows.length });
+      setResults([...allResults]);
+    }
+
+    setStats({ succeeded, failed, creditsUsed });
+    setIsGenerating(false);
+    setProgress(null);
+    queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+
+    toast({
+      title: "Generation complete",
+      description: `${succeeded} succeeded, ${failed} failed · ${creditsUsed} credits used`,
     });
   };
 
@@ -160,8 +198,12 @@ export default function Generate() {
     setParsedRows([]);
     setResults(null);
     setStats(null);
+    setProgress(null);
+    abortRef.current = true;
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+
+  const progressPct = progress ? Math.round((progress.current / progress.total) * 100) : 0;
 
   return (
     <AppLayout>
@@ -172,7 +214,7 @@ export default function Generate() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Controls */}
+          {/* Left Column */}
           <div className="lg:col-span-1 space-y-6">
             <Card className="glass-panel">
               <CardContent className="p-6 space-y-6">
@@ -182,14 +224,7 @@ export default function Generate() {
                   <h3 className="text-lg font-bold mb-3 flex items-center">
                     <FileText className="w-5 h-5 mr-2 text-primary" /> 1. Upload CSV
                   </h3>
-
-                  <input
-                    type="file"
-                    accept=".csv"
-                    className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                  />
+                  <input type="file" accept=".csv" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
 
                   {!file ? (
                     <div
@@ -215,7 +250,8 @@ export default function Generate() {
                       </div>
                       <button
                         onClick={handleClear}
-                        className="text-xs text-muted-foreground hover:text-white px-2 shrink-0"
+                        disabled={isGenerating}
+                        className="text-xs text-muted-foreground hover:text-white px-2 shrink-0 disabled:opacity-40"
                       >
                         Clear
                       </button>
@@ -237,34 +273,26 @@ export default function Generate() {
                   <h3 className="text-lg font-bold mb-4 flex items-center">
                     <Settings2 className="w-5 h-5 mr-2 text-primary" /> 2. Configure
                   </h3>
-
                   <div className="space-y-4">
                     <div>
                       <label className="text-sm font-medium text-muted-foreground mb-2 block">Output Detail Level</label>
                       <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={() => setOutputMode("concise")}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${outputMode === "concise" ? "bg-primary/20 border-primary text-white" : "bg-transparent border-white/10 text-muted-foreground hover:border-white/30"}`}
-                        >
-                          Concise
-                        </button>
-                        <button
-                          onClick={() => setOutputMode("detailed")}
-                          className={`py-2 px-3 rounded-lg text-sm font-medium border transition-colors ${outputMode === "detailed" ? "bg-primary/20 border-primary text-white" : "bg-transparent border-white/10 text-muted-foreground hover:border-white/30"}`}
-                        >
-                          Detailed
-                        </button>
+                        {(["concise", "detailed"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            onClick={() => setOutputMode(mode)}
+                            disabled={isGenerating}
+                            className={`py-2 px-3 rounded-lg text-sm font-medium border transition-colors disabled:opacity-40 ${outputMode === mode ? "bg-primary/20 border-primary text-white" : "bg-transparent border-white/10 text-muted-foreground hover:border-white/30"}`}
+                          >
+                            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                          </button>
+                        ))}
                       </div>
                     </div>
 
                     <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-white/10 hover:bg-white/5 transition-colors">
                       <div className="relative flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={includeSocial}
-                          onChange={(e) => setIncludeSocial(e.target.checked)}
-                        />
+                        <input type="checkbox" className="sr-only" checked={includeSocial} onChange={(e) => setIncludeSocial(e.target.checked)} disabled={isGenerating} />
                         <div className={`w-5 h-5 rounded border ${includeSocial ? "bg-primary border-primary" : "border-white/30"} flex items-center justify-center transition-colors`}>
                           {includeSocial && <CheckCircle2 className="w-3 h-3 text-white" />}
                         </div>
@@ -280,22 +308,41 @@ export default function Generate() {
                 <div>
                   <Button
                     className="w-full h-12 text-base"
-                    disabled={!file || parsedRows.length === 0 || isPending}
+                    disabled={!file || parsedRows.length === 0 || isGenerating}
                     onClick={handleGenerate}
-                    isLoading={isPending}
+                    isLoading={isGenerating}
                   >
-                    {isPending ? `Generating ${parsedRows.length} listings…` : "Generate Descriptions"}
+                    {isGenerating
+                      ? progress
+                        ? `Generating ${progress.current}/${progress.total}…`
+                        : "Starting…"
+                      : "Generate Descriptions"}
                   </Button>
 
-                  {parsedRows.length > 0 && !isPending && (
-                    <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Will use {parsedRows.length} credit{parsedRows.length !== 1 ? "s" : ""}
-                    </p>
+                  {/* Progress bar */}
+                  {isGenerating && progress && (
+                    <div className="mt-3 space-y-1.5">
+                      <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-center text-primary">
+                        {progress.current} of {progress.total} properties done
+                      </p>
+                    </div>
                   )}
 
-                  {isPending && (
-                    <p className="text-xs text-center text-primary mt-3 animate-pulse">
-                      Processing row by row — please wait…
+                  {/* Credit cost hint (idle) */}
+                  {parsedRows.length > 0 && !isGenerating && (
+                    <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3" /> Will use {parsedRows.length} credit{parsedRows.length !== 1 ? "s" : ""}
+                      {user && (
+                        <span className={parsedRows.length > (user.creditsRemaining ?? 0) ? "text-red-400" : "text-primary"}>
+                          &nbsp;({user.creditsRemaining} available)
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
@@ -315,23 +362,22 @@ export default function Generate() {
                         <span className="flex items-center gap-1 text-green-400">
                           <CheckCircle2 className="w-3 h-3" /> {stats.succeeded} succeeded
                         </span>
-                        {stats.failed > 0 ? (
-                          <span className="flex items-center gap-1 text-red-400">
-                            <XCircle className="w-3 h-3" /> {stats.failed} failed
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-muted-foreground">
-                            <XCircle className="w-3 h-3" /> 0 failed
-                          </span>
-                        )}
+                        <span className={`flex items-center gap-1 ${stats.failed > 0 ? "text-red-400" : "text-muted-foreground"}`}>
+                          <XCircle className="w-3 h-3" /> {stats.failed} failed
+                        </span>
                       </p>
                       <p className="text-xs text-primary font-medium">
                         {stats.creditsUsed} credit{stats.creditsUsed !== 1 ? "s" : ""} used
                       </p>
                     </div>
                   )}
+                  {isGenerating && progress && (
+                    <p className="text-xs text-primary mt-0.5 animate-pulse">
+                      Generating {progress.current}/{progress.total}…
+                    </p>
+                  )}
                 </div>
-                {results && (
+                {results && results.length > 0 && !isGenerating && (
                   <Button size="sm" variant="secondary" onClick={handleDownload}>
                     <Download className="w-4 h-4 mr-2" /> Export CSV
                   </Button>
@@ -339,32 +385,39 @@ export default function Generate() {
               </div>
 
               <CardContent className="p-0 flex-1 overflow-y-auto">
-                {!results && !isPending ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
-                    <Sparkles className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="font-medium text-lg text-white mb-2">Ready to generate</p>
-                    <p className="max-w-md text-sm">
-                      Upload your CSV file and click Generate. All AI-written descriptions will appear here once complete.
-                    </p>
-                  </div>
-                ) : isPending ? (
-                  <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
-                    <div className="w-12 h-12 mb-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                    <p className="font-medium text-lg text-white mb-2">Generating…</p>
-                    <p className="max-w-md text-sm">
-                      Processing {parsedRows.length} propert{parsedRows.length !== 1 ? "ies" : "y"} one by one.
-                      This may take a moment.
-                    </p>
-                  </div>
+                {!results || results.length === 0 ? (
+                  isGenerating ? (
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                      <div className="w-12 h-12 mb-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                      <p className="font-medium text-lg text-white mb-2">
+                        {progress ? `Generating ${progress.current}/${progress.total}` : "Starting…"}
+                      </p>
+                      <p className="max-w-md text-sm">Results will appear here as each property is processed.</p>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                      <Sparkles className="w-12 h-12 mb-4 opacity-20" />
+                      <p className="font-medium text-lg text-white mb-2">Ready to generate</p>
+                      <p className="max-w-md text-sm">
+                        Upload your CSV and click Generate. Results appear here as each row is processed.
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <div className="divide-y divide-white/5">
-                    {results!.map((res, i) => (
-                      <div key={i} className={`p-6 hover:bg-white/[0.02] transition-colors ${res.failed ? "opacity-60" : ""}`}>
+                    {results.map((res, i) => (
+                      <div
+                        key={i}
+                        className={`p-6 hover:bg-white/[0.02] transition-colors ${res.failed ? "opacity-60" : ""}`}
+                      >
                         <h4 className="font-bold text-white text-base mb-3 flex items-center gap-2">
                           <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">
                             #{i + 1}
                           </span>
                           {res.propertyTitle}
+                          {isGenerating && i === results.length - 1 && !res.failed && (
+                            <span className="ml-1 w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin inline-block" />
+                          )}
                           {res.failed && (
                             <span className="ml-auto flex items-center gap-1 text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded">
                               <XCircle className="w-3 h-3" /> Failed
@@ -374,29 +427,21 @@ export default function Generate() {
 
                         {res.failed ? (
                           <p className="text-sm text-muted-foreground italic">
-                            This row could not be processed. It has been skipped.
+                            This row could not be processed and was skipped.
                           </p>
                         ) : (
                           <div className="space-y-4">
                             <div>
-                              <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                                Short Description
-                              </p>
+                              <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Short Description</p>
                               <p className="text-sm text-foreground/90">{res.shortDescription}</p>
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">
-                                Long Description
-                              </p>
-                              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                                {res.longDescription}
-                              </p>
+                              <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Long Description</p>
+                              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{res.longDescription}</p>
                             </div>
                             {res.socialCaption && (
                               <div className="bg-white/5 p-4 rounded-xl border border-white/5">
-                                <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">
-                                  Social Caption
-                                </p>
+                                <p className="text-xs font-semibold text-accent uppercase tracking-wider mb-2">Social Caption</p>
                                 <p className="text-sm text-foreground/80">{res.socialCaption}</p>
                               </div>
                             )}
@@ -404,6 +449,23 @@ export default function Generate() {
                         )}
                       </div>
                     ))}
+
+                    {/* Live "next row in progress" placeholder */}
+                    {isGenerating && progress && progress.current < progress.total && (
+                      <div className="p-6 opacity-40">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">
+                            #{(progress.current) + 1}
+                          </span>
+                          <div className="h-4 bg-white/10 rounded w-48 animate-pulse" />
+                          <span className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="h-3 bg-white/10 rounded w-full animate-pulse" />
+                          <div className="h-3 bg-white/10 rounded w-3/4 animate-pulse" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
