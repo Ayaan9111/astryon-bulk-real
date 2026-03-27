@@ -271,6 +271,17 @@ async function parseSuccessBody(
   }
 }
 
+function getStoredToken(): string | null {
+  try {
+    const persisted = localStorage.getItem("astryon-auth");
+    if (!persisted) return localStorage.getItem("token");
+    const parsed = JSON.parse(persisted);
+    return parsed?.state?.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function customFetch<T = unknown>(
   input: RequestInfo | URL,
   options: CustomFetchOptions = {},
@@ -284,6 +295,11 @@ export async function customFetch<T = unknown>(
   }
 
   const headers = mergeHeaders(isRequest(input) ? input.headers : undefined, headersInit);
+
+  const token = getStoredToken();
+  if (token && !headers.has("authorization")) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
 
   if (
     typeof init.body === "string" &&
