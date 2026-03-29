@@ -169,6 +169,11 @@ export default function Generate() {
       // Update progress and show live partial results after each row
       setProgress({ current: i + 1, total: parsedRows.length });
       setResults([...allResults]);
+
+      // Small pause between rows so we don't hammer the AI rate limit
+      if (i < parsedRows.length - 1) {
+        await new Promise((r) => setTimeout(r, 400));
+      }
     }
 
     setStats({ succeeded, failed, creditsUsed });
