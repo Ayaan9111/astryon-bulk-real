@@ -11,5 +11,8 @@ export interface GenerationJobSummary {
   outputMode: string;
   listingCount: number;
   creditsUsed: number;
+  succeededCount: number;
+  failedCount: number;
+  status: string;
   createdAt: Date;
 }

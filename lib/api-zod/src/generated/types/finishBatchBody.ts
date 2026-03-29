@@ -7,14 +7,9 @@
  */
 import type { GeneratedListing } from "./generatedListing";
 
-export interface GenerationJob {
-  id: number;
-  outputMode: string;
-  listingCount: number;
+export interface FinishBatchBody {
+  results: GeneratedListing[];
+  succeeded: number;
+  failed: number;
   creditsUsed: number;
-  succeededCount: number;
-  failedCount: number;
-  status: string;
-  createdAt: Date;
-  listings: GeneratedListing[];
 }

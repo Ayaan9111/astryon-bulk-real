@@ -114,6 +114,59 @@ export interface PropertyRow {
   nearbyLandmarks?: string | null;
 }
 
+export type StartBatchBodyOutputMode =
+  (typeof StartBatchBodyOutputMode)[keyof typeof StartBatchBodyOutputMode];
+
+export const StartBatchBodyOutputMode = {
+  concise: "concise",
+  detailed: "detailed",
+} as const;
+
+export interface StartBatchBody {
+  totalRows: number;
+  outputMode: StartBatchBodyOutputMode;
+  includeSocialCaption?: boolean;
+}
+
+export interface StartBatchResponse {
+  batchId: number;
+  creditsRemaining: number;
+}
+
+export type GenerateRowBodyOutputMode =
+  (typeof GenerateRowBodyOutputMode)[keyof typeof GenerateRowBodyOutputMode];
+
+export const GenerateRowBodyOutputMode = {
+  concise: "concise",
+  detailed: "detailed",
+} as const;
+
+export interface GenerateRowBody {
+  property: PropertyRow;
+  outputMode: GenerateRowBodyOutputMode;
+  includeSocialCaption?: boolean;
+}
+
+export interface GeneratedListing {
+  propertyTitle: string;
+  longDescription: string;
+  shortDescription: string;
+  /** @nullable */
+  socialCaption: string | null;
+  failed: boolean;
+}
+
+export interface GenerateRowResponse {
+  listing: GeneratedListing;
+}
+
+export interface FinishBatchBody {
+  results: GeneratedListing[];
+  succeeded: number;
+  failed: number;
+  creditsUsed: number;
+}
+
 export type GenerateListingsBodyOutputMode =
   (typeof GenerateListingsBodyOutputMode)[keyof typeof GenerateListingsBodyOutputMode];
 
@@ -126,15 +179,6 @@ export interface GenerateListingsBody {
   properties: PropertyRow[];
   outputMode: GenerateListingsBodyOutputMode;
   includeSocialCaption?: boolean;
-}
-
-export interface GeneratedListing {
-  propertyTitle: string;
-  longDescription: string;
-  shortDescription: string;
-  /** @nullable */
-  socialCaption: string | null;
-  failed: boolean;
 }
 
 export interface GenerateListingsResponse {
@@ -151,6 +195,9 @@ export interface GenerationJobSummary {
   outputMode: string;
   listingCount: number;
   creditsUsed: number;
+  succeededCount: number;
+  failedCount: number;
+  status: string;
   createdAt: string;
 }
 
@@ -166,6 +213,9 @@ export interface GenerationJob {
   outputMode: string;
   listingCount: number;
   creditsUsed: number;
+  succeededCount: number;
+  failedCount: number;
+  status: string;
   createdAt: string;
   listings: GeneratedListing[];
 }
@@ -311,6 +361,10 @@ export interface AdminStats {
   totalCreditsUsed: number;
   usersByPlan: AdminStatsUsersByPlan;
 }
+
+export type FinishBatch200 = {
+  success: boolean;
+};
 
 export type GetGenerationHistoryParams = {
   page?: number;

@@ -9,6 +9,9 @@ export const generationJobsTable = pgTable("generation_jobs", {
   outputMode: text("output_mode").notNull(),
   listingCount: integer("listing_count").notNull(),
   creditsUsed: integer("credits_used").notNull(),
+  succeededCount: integer("succeeded_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  status: text("status").notNull().default("completed"),
   results: jsonb("results").notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

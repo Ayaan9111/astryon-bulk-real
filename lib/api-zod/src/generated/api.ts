@@ -142,6 +142,75 @@ export const GenerateListingsResponse = zod.object({
 });
 
 /**
+ * @summary Create a batch record and deduct credits upfront
+ */
+export const StartBatchBody = zod.object({
+  totalRows: zod.number(),
+  outputMode: zod.enum(["concise", "detailed"]),
+  includeSocialCaption: zod.boolean().optional(),
+});
+
+export const StartBatchResponse = zod.object({
+  batchId: zod.number(),
+  creditsRemaining: zod.number(),
+});
+
+/**
+ * @summary Generate AI listing for a single property row (no credit deduction)
+ */
+export const GenerateRowBody = zod.object({
+  property: zod.object({
+    propertyTitle: zod.string(),
+    propertyType: zod.string().nullish(),
+    bedrooms: zod.string().nullish(),
+    bathrooms: zod.string().nullish(),
+    areaSqft: zod.string().nullish(),
+    location: zod.string(),
+    price: zod.string(),
+    amenities: zod.string().nullish(),
+    nearbyLandmarks: zod.string().nullish(),
+  }),
+  outputMode: zod.enum(["concise", "detailed"]),
+  includeSocialCaption: zod.boolean().optional(),
+});
+
+export const GenerateRowResponse = zod.object({
+  listing: zod.object({
+    propertyTitle: zod.string(),
+    longDescription: zod.string(),
+    shortDescription: zod.string(),
+    socialCaption: zod.string().nullable(),
+    failed: zod.boolean(),
+  }),
+});
+
+/**
+ * @summary Save all results to the batch and mark it completed
+ */
+export const FinishBatchParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const FinishBatchBody = zod.object({
+  results: zod.array(
+    zod.object({
+      propertyTitle: zod.string(),
+      longDescription: zod.string(),
+      shortDescription: zod.string(),
+      socialCaption: zod.string().nullable(),
+      failed: zod.boolean(),
+    }),
+  ),
+  succeeded: zod.number(),
+  failed: zod.number(),
+  creditsUsed: zod.number(),
+});
+
+export const FinishBatchResponse = zod.object({
+  success: zod.boolean(),
+});
+
+/**
  * @summary Get generation history for current user
  */
 export const GetGenerationHistoryQueryParams = zod.object({
@@ -156,6 +225,9 @@ export const GetGenerationHistoryResponse = zod.object({
       outputMode: zod.string(),
       listingCount: zod.number(),
       creditsUsed: zod.number(),
+      succeededCount: zod.number(),
+      failedCount: zod.number(),
+      status: zod.string(),
       createdAt: zod.date(),
     }),
   ),
@@ -176,6 +248,9 @@ export const GetGenerationJobResponse = zod.object({
   outputMode: zod.string(),
   listingCount: zod.number(),
   creditsUsed: zod.number(),
+  succeededCount: zod.number(),
+  failedCount: zod.number(),
+  status: zod.string(),
   createdAt: zod.date(),
   listings: zod.array(
     zod.object({

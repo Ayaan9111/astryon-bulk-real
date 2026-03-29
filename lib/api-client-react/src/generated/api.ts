@@ -31,8 +31,12 @@ import type {
   CreateCheckoutResponse,
   ErrorResponse,
   FeedbackBody,
+  FinishBatch200,
+  FinishBatchBody,
   GenerateListingsBody,
   GenerateListingsResponse,
+  GenerateRowBody,
+  GenerateRowResponse,
   GenerationHistoryResponse,
   GenerationJob,
   GetGenerationHistoryParams,
@@ -44,6 +48,8 @@ import type {
   PaddleWebhookResponse,
   PlansResponse,
   RegisterBody,
+  StartBatchBody,
+  StartBatchResponse,
   SuccessResponse,
   UpdateProfileBody,
   UserProfile,
@@ -706,6 +712,265 @@ export const useGenerateListings = <
   TContext
 > => {
   return useMutation(getGenerateListingsMutationOptions(options));
+};
+
+/**
+ * @summary Create a batch record and deduct credits upfront
+ */
+export const getStartBatchUrl = () => {
+  return `/api/listings/batches/start`;
+};
+
+export const startBatch = async (
+  startBatchBody: StartBatchBody,
+  options?: RequestInit,
+): Promise<StartBatchResponse> => {
+  return customFetch<StartBatchResponse>(getStartBatchUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(startBatchBody),
+  });
+};
+
+export const getStartBatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startBatch>>,
+    TError,
+    { data: BodyType<StartBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startBatch>>,
+  TError,
+  { data: BodyType<StartBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["startBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startBatch>>,
+    { data: BodyType<StartBatchBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startBatch(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startBatch>>
+>;
+export type StartBatchMutationBody = BodyType<StartBatchBody>;
+export type StartBatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a batch record and deduct credits upfront
+ */
+export const useStartBatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startBatch>>,
+    TError,
+    { data: BodyType<StartBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startBatch>>,
+  TError,
+  { data: BodyType<StartBatchBody> },
+  TContext
+> => {
+  return useMutation(getStartBatchMutationOptions(options));
+};
+
+/**
+ * @summary Generate AI listing for a single property row (no credit deduction)
+ */
+export const getGenerateRowUrl = () => {
+  return `/api/listings/generate-row`;
+};
+
+export const generateRow = async (
+  generateRowBody: GenerateRowBody,
+  options?: RequestInit,
+): Promise<GenerateRowResponse> => {
+  return customFetch<GenerateRowResponse>(getGenerateRowUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(generateRowBody),
+  });
+};
+
+export const getGenerateRowMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateRow>>,
+    TError,
+    { data: BodyType<GenerateRowBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof generateRow>>,
+  TError,
+  { data: BodyType<GenerateRowBody> },
+  TContext
+> => {
+  const mutationKey = ["generateRow"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof generateRow>>,
+    { data: BodyType<GenerateRowBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return generateRow(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GenerateRowMutationResult = NonNullable<
+  Awaited<ReturnType<typeof generateRow>>
+>;
+export type GenerateRowMutationBody = BodyType<GenerateRowBody>;
+export type GenerateRowMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Generate AI listing for a single property row (no credit deduction)
+ */
+export const useGenerateRow = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof generateRow>>,
+    TError,
+    { data: BodyType<GenerateRowBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof generateRow>>,
+  TError,
+  { data: BodyType<GenerateRowBody> },
+  TContext
+> => {
+  return useMutation(getGenerateRowMutationOptions(options));
+};
+
+/**
+ * @summary Save all results to the batch and mark it completed
+ */
+export const getFinishBatchUrl = (id: number) => {
+  return `/api/listings/batches/${id}`;
+};
+
+export const finishBatch = async (
+  id: number,
+  finishBatchBody: FinishBatchBody,
+  options?: RequestInit,
+): Promise<FinishBatch200> => {
+  return customFetch<FinishBatch200>(getFinishBatchUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(finishBatchBody),
+  });
+};
+
+export const getFinishBatchMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finishBatch>>,
+    TError,
+    { id: number; data: BodyType<FinishBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof finishBatch>>,
+  TError,
+  { id: number; data: BodyType<FinishBatchBody> },
+  TContext
+> => {
+  const mutationKey = ["finishBatch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof finishBatch>>,
+    { id: number; data: BodyType<FinishBatchBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return finishBatch(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type FinishBatchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof finishBatch>>
+>;
+export type FinishBatchMutationBody = BodyType<FinishBatchBody>;
+export type FinishBatchMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Save all results to the batch and mark it completed
+ */
+export const useFinishBatch = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof finishBatch>>,
+    TError,
+    { id: number; data: BodyType<FinishBatchBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof finishBatch>>,
+  TError,
+  { id: number; data: BodyType<FinishBatchBody> },
+  TContext
+> => {
+  return useMutation(getFinishBatchMutationOptions(options));
 };
 
 /**

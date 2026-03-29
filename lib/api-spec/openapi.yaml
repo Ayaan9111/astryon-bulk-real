@@ -213,6 +213,97 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /listings/batches/start:
+    post:
+      operationId: startBatch
+      tags: [listings]
+      summary: Create a batch record and deduct credits upfront
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartBatchBody"
+      responses:
+        "200":
+          description: Batch created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartBatchResponse"
+        "402":
+          description: Insufficient credits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/generate-row:
+    post:
+      operationId: generateRow
+      tags: [listings]
+      summary: Generate AI listing for a single property row (no credit deduction)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateRowBody"
+      responses:
+        "200":
+          description: Row generated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerateRowResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /listings/batches/{id}:
+    patch:
+      operationId: finishBatch
+      tags: [listings]
+      summary: Save all results to the batch and mark it completed
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FinishBatchBody"
+      responses:
+        "200":
+          description: Batch completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                required: [success]
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /listings/history:
     get:
       operationId: getGenerationHistory
@@ -766,6 +857,72 @@ components:
         - location
         - price
 
+    StartBatchBody:
+      type: object
+      properties:
+        totalRows:
+          type: integer
+        outputMode:
+          type: string
+          enum: [concise, detailed]
+        includeSocialCaption:
+          type: boolean
+      required:
+        - totalRows
+        - outputMode
+
+    StartBatchResponse:
+      type: object
+      properties:
+        batchId:
+          type: integer
+        creditsRemaining:
+          type: integer
+      required:
+        - batchId
+        - creditsRemaining
+
+    GenerateRowBody:
+      type: object
+      properties:
+        property:
+          $ref: "#/components/schemas/PropertyRow"
+        outputMode:
+          type: string
+          enum: [concise, detailed]
+        includeSocialCaption:
+          type: boolean
+      required:
+        - property
+        - outputMode
+
+    GenerateRowResponse:
+      type: object
+      properties:
+        listing:
+          $ref: "#/components/schemas/GeneratedListing"
+      required:
+        - listing
+
+    FinishBatchBody:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/GeneratedListing"
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        creditsUsed:
+          type: integer
+      required:
+        - results
+        - succeeded
+        - failed
+        - creditsUsed
+
     GenerateListingsBody:
       type: object
       properties:
@@ -838,6 +995,12 @@ components:
           type: integer
         creditsUsed:
           type: integer
+        succeededCount:
+          type: integer
+        failedCount:
+          type: integer
+        status:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -846,6 +1009,9 @@ components:
         - outputMode
         - listingCount
         - creditsUsed
+        - succeededCount
+        - failedCount
+        - status
         - createdAt
 
     GenerationHistoryResponse:
@@ -878,6 +1044,12 @@ components:
           type: integer
         creditsUsed:
           type: integer
+        succeededCount:
+          type: integer
+        failedCount:
+          type: integer
+        status:
+          type: string
         createdAt:
           type: string
           format: date-time
@@ -890,6 +1062,9 @@ components:
         - outputMode
         - listingCount
         - creditsUsed
+        - succeededCount
+        - failedCount
+        - status
         - createdAt
         - listings
 
