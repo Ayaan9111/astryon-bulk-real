@@ -140,7 +140,9 @@ export default function Generate() {
 
       try {
         const res = await generateListings({
-          data: { properties: [property], outputMode, includeSocialCaption: includeSocial },
+          properties: [property],
+          outputMode,
+          includeSocialCaption: includeSocial,
         });
         const listing = res.listings[0];
         allResults.push(listing);
