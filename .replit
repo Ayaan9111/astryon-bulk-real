@@ -33,6 +33,10 @@ AI_MODEL_NAME = "llama-3.3-70b-versatile"
 STARTER_PROVIDER = "groq"
 PRO_PROVIDER = "groq"
 AGENCY_PROVIDER = "groq"
+VITE_PADDLE_CLIENT_TOKEN = "live_0897f18d913f33083c45cd68ec1"
+PADDLE_PRODUCT_STARTER = "pri_01knrwepzjjaqzr9v8wvtf4azp"
+PADDLE_PRODUCT_PRO = "pri_01knrwq2v3vg7vb2gtmebfbb3s"
+PADDLE_PRODUCT_AGENCY = "pri_01knrx4545jmdw257v1jjf1k4v"
 
 [nix]
 channel = "stable-25_05"

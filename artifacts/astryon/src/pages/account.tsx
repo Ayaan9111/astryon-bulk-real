@@ -6,6 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { User, Mail, Lock, MessageSquare } from "lucide-react";
+import { openPaddleCheckout } from "@/hooks/use-paddle";
+
+const PLAN_PRICE_IDS: Record<string, string> = {
+  starter: "pri_01knrwepzjjaqzr9v8wvtf4azp",
+  pro: "pri_01knrwq2v3vg7vb2gtmebfbb3s",
+  agency: "pri_01knrx4545jmdw257v1jjf1k4v",
+};
+
+const UPGRADE_PLANS = [
+  { id: "starter", name: "Starter", price: "€49" },
+  { id: "pro", name: "Pro", price: "€129", popular: true },
+  { id: "agency", name: "Agency", price: "€299" },
+];
 
 export default function Account() {
   const { data: user } = useGetMe();
@@ -136,9 +149,34 @@ export default function Account() {
                     <span className="font-bold text-primary">{user?.creditsRemaining} / {user?.creditsTotal}</span>
                   </div>
                 </div>
-                <Button className="w-full" variant="outline" onClick={() => window.location.href = "/#pricing"}>
-                  Upgrade Plan
-                </Button>
+
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider pt-1">Upgrade your plan</p>
+                <div className="space-y-2">
+                  {UPGRADE_PLANS.map((plan) => (
+                    <button
+                      key={plan.id}
+                      onClick={() => openPaddleCheckout({
+                        priceId: PLAN_PRICE_IDS[plan.id],
+                        email: user?.email,
+                      })}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-medium transition-all hover:scale-[1.01] active:scale-100 ${
+                        plan.popular
+                          ? "border-primary bg-primary/10 text-white hover:bg-primary/20"
+                          : "border-white/10 bg-white/5 text-muted-foreground hover:border-white/20 hover:text-white"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2">
+                        {plan.name}
+                        {plan.popular && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-primary/30 text-primary rounded-full font-semibold">
+                            Popular
+                          </span>
+                        )}
+                      </span>
+                      <span className="font-bold">{plan.price}<span className="text-xs font-normal text-muted-foreground">/mo</span></span>
+                    </button>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 

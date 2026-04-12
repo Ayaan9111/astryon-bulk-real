@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ArrowRight, Sparkles, Zap, Clock, TrendingUp, CheckCircle2 } from "lucide-react";
 import { useGetPlans } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
+import { openPaddleCheckout } from "@/hooks/use-paddle";
 
 export default function Landing() {
   const { data: plansData } = useGetPlans();
@@ -110,11 +111,16 @@ export default function Landing() {
                     <span className="text-muted-foreground">/mo</span>
                   </div>
 
-                  <Link href={`/register?plan=${plan.id}`}>
-                    <Button variant={plan.isPopular ? 'default' : 'glass'} className="w-full mb-8">
-                      Get Started
-                    </Button>
-                  </Link>
+                  <Button
+                    variant={plan.isPopular ? 'default' : 'glass'}
+                    className="w-full mb-8"
+                    onClick={() => plan.paddleProductId
+                      ? openPaddleCheckout({ priceId: plan.paddleProductId })
+                      : window.location.href = `/register?plan=${plan.id}`
+                    }
+                  >
+                    Get Started
+                  </Button>
 
                   <ul className="space-y-4">
                     <li className="flex items-center gap-3 text-sm">
