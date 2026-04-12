@@ -10,10 +10,18 @@ function initPaddle() {
   if (initialized || typeof window === "undefined" || !window.Paddle) return;
   const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN;
   if (!token) {
-    console.warn("VITE_PADDLE_CLIENT_TOKEN is not set");
+    console.error("[Paddle] VITE_PADDLE_CLIENT_TOKEN is not set");
     return;
   }
-  window.Paddle.Initialize({ token });
+  window.Paddle.Initialize({
+    token,
+    eventCallback(event: any) {
+      console.log("[Paddle event]", event.name, event.data ?? event);
+      if (event.name === "checkout.error") {
+        console.error("[Paddle checkout.error]", JSON.stringify(event.data, null, 2));
+      }
+    },
+  });
   initialized = true;
 }
 
@@ -29,17 +37,19 @@ export function openPaddleCheckout({
   initPaddle();
 
   if (!window.Paddle) {
-    console.error("Paddle.js not loaded");
+    console.error("[Paddle] Paddle.js not loaded");
     return;
   }
 
+  console.log("[Paddle] Opening checkout for priceId:", priceId);
+
   window.Paddle.Checkout.open({
     items: [{ priceId, quantity: 1 }],
-    customer: email ? { email } : undefined,
+    ...(email ? { customer: { email } } : {}),
     settings: {
       displayMode: "overlay",
       theme: "dark",
     },
-    successCallback: onSuccess,
+    ...(onSuccess ? { successUrl: undefined } : {}),
   });
 }
