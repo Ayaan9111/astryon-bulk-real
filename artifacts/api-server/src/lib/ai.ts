@@ -146,30 +146,17 @@ export async function generateListingDescription(
   includeSocial: boolean,
   userPlan: string
 ): Promise<GeneratedListing> {
-  const { provider, model } = getModelForPlan(userPlan);
+  const { model } = getModelForPlan(userPlan);
   const prompt = buildPrompt(property, outputMode, includeSocial);
-  let responseText = "";
 
-  if (provider === "openai") {
-    const OpenAI = (await import("openai")).default;
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    responseText = await callWithRetry(() =>
-      openai.chat.completions.create({
-        model: process.env.AI_MODEL_NAME || "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-      }).then((c) => c.choices[0]?.message?.content || "")
-    );
-  } else {
-    const groq = getGroqClient();
-    responseText = await callWithRetry(() =>
-      groq.chat.completions.create({
-        model: model || "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-      }).then((c) => c.choices[0]?.message?.content || "")
-    );
-  }
+  const groq = getGroqClient();
+  const responseText = await callWithRetry(() =>
+    groq.chat.completions.create({
+      model: model || "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+    }).then((c) => c.choices[0]?.message?.content || "")
+  );
 
   const parsed = parseResponse(responseText, includeSocial);
 
