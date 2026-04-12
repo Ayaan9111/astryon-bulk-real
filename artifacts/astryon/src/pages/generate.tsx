@@ -7,7 +7,13 @@ import {
   Upload, FileText, CheckCircle2, AlertCircle, Settings2,
   Download, Sparkles, XCircle, FileDown
 } from "lucide-react";
-import { generateListings, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import {
+  startBatch,
+  generateRow,
+  finishBatch,
+  useGetMe,
+  getGetMeQueryKey,
+} from "@workspace/api-client-react";
 import Papa from "papaparse";
 import { useToast } from "@/hooks/use-toast";
 import { downloadCSV } from "@/lib/utils";
@@ -81,7 +87,7 @@ export default function Generate() {
           toast({
             variant: "destructive",
             title: "Missing required columns",
-            description: `CSV must include required columns: ${REQUIRED_COLUMNS.join(", ")}`,
+            description: `CSV must include: ${REQUIRED_COLUMNS.join(", ")}`,
           });
           setFile(null);
           return;
@@ -110,17 +116,33 @@ export default function Generate() {
       return;
     }
 
-    // ── Start generation loop ─────────────────────────────────────────────────
     setIsGenerating(true);
     setResults(null);
     setStats(null);
     setProgress({ current: 0, total: parsedRows.length });
     abortRef.current = false;
 
+    // ── Step 1: Create ONE batch record (deducts all credits atomically) ──────
+    let batchId: number;
+    try {
+      const batchRes = await startBatch({
+        totalRows: parsedRows.length,
+        outputMode,
+        includeSocialCaption: includeSocial,
+      });
+      batchId = batchRes.batchId;
+    } catch (err: any) {
+      const msg = err?.data?.error || err?.message || "Failed to start generation";
+      toast({ variant: "destructive", title: "Could not start", description: msg });
+      setIsGenerating(false);
+      setProgress(null);
+      return;
+    }
+
+    // ── Step 2: Generate each row individually, appending results live ────────
     const allResults: any[] = [];
     let succeeded = 0;
     let failed = 0;
-    let creditsUsed = 0;
 
     for (let i = 0; i < parsedRows.length; i++) {
       if (abortRef.current) break;
@@ -139,25 +161,14 @@ export default function Generate() {
       };
 
       try {
-        const res = await generateListings({
-          properties: [property],
-          outputMode,
-          includeSocialCaption: includeSocial,
-        });
-        const listing = res.listings[0];
-        allResults.push(listing);
-        if (listing?.failed) {
+        const res = await generateRow({ property, outputMode, includeSocialCaption: includeSocial });
+        allResults.push(res.listing);
+        if (res.listing?.failed) {
           failed++;
         } else {
           succeeded++;
-          creditsUsed += res.creditsUsed;
         }
       } catch (err: any) {
-        const errMsg = err?.data?.error || err?.message || "Generation failed";
-        if (errMsg.toLowerCase().includes("not enough credits") || errMsg.toLowerCase().includes("insufficient")) {
-          toast({ variant: "destructive", title: "Out of credits", description: errMsg });
-          abortRef.current = true;
-        }
         allResults.push({
           propertyTitle: property.propertyTitle,
           longDescription: "",
@@ -168,14 +179,25 @@ export default function Generate() {
         failed++;
       }
 
-      // Update progress and show live partial results after each row
       setProgress({ current: i + 1, total: parsedRows.length });
       setResults([...allResults]);
 
-      // Small pause between rows so we don't hammer the AI rate limit
       if (i < parsedRows.length - 1) {
         await new Promise((r) => setTimeout(r, 400));
       }
+    }
+
+    // ── Step 3: Save all results to the ONE batch record, mark completed ──────
+    const creditsUsed = succeeded;
+    try {
+      await finishBatch(batchId, {
+        results: allResults,
+        succeeded,
+        failed,
+        creditsUsed,
+      });
+    } catch (err) {
+      console.error("Failed to finish batch:", err);
     }
 
     setStats({ succeeded, failed, creditsUsed });
@@ -326,7 +348,6 @@ export default function Generate() {
                       : "Generate Descriptions"}
                   </Button>
 
-                  {/* Progress bar */}
                   {isGenerating && progress && (
                     <div className="mt-3 space-y-1.5">
                       <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
@@ -341,7 +362,6 @@ export default function Generate() {
                     </div>
                   )}
 
-                  {/* Credit cost hint (idle) */}
                   {parsedRows.length > 0 && !isGenerating && (
                     <p className="text-xs text-center text-muted-foreground mt-3 flex items-center justify-center gap-1">
                       <AlertCircle className="w-3 h-3" /> Will use {parsedRows.length} credit{parsedRows.length !== 1 ? "s" : ""}
@@ -413,29 +433,18 @@ export default function Generate() {
                 ) : (
                   <div className="divide-y divide-white/5">
                     {results.map((res, i) => (
-                      <div
-                        key={i}
-                        className={`p-6 hover:bg-white/[0.02] transition-colors ${res.failed ? "opacity-60" : ""}`}
-                      >
+                      <div key={i} className={`p-6 hover:bg-white/[0.02] transition-colors ${res.failed ? "opacity-60" : ""}`}>
                         <h4 className="font-bold text-white text-base mb-3 flex items-center gap-2">
-                          <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">
-                            #{i + 1}
-                          </span>
+                          <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">#{i + 1}</span>
                           {res.propertyTitle}
-                          {isGenerating && i === results.length - 1 && !res.failed && (
-                            <span className="ml-1 w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin inline-block" />
-                          )}
                           {res.failed && (
                             <span className="ml-auto flex items-center gap-1 text-xs text-red-400 bg-red-400/10 px-2 py-0.5 rounded">
                               <XCircle className="w-3 h-3" /> Failed
                             </span>
                           )}
                         </h4>
-
                         {res.failed ? (
-                          <p className="text-sm text-muted-foreground italic">
-                            This row could not be processed and was skipped.
-                          </p>
+                          <p className="text-sm text-muted-foreground italic">This row could not be processed and was skipped.</p>
                         ) : (
                           <div className="space-y-4">
                             <div>
@@ -457,13 +466,10 @@ export default function Generate() {
                       </div>
                     ))}
 
-                    {/* Live "next row in progress" placeholder */}
                     {isGenerating && progress && progress.current < progress.total && (
                       <div className="p-6 opacity-40">
                         <div className="flex items-center gap-2 mb-3">
-                          <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">
-                            #{(progress.current) + 1}
-                          </span>
+                          <span className="text-primary text-xs font-mono bg-primary/10 px-2 py-0.5 rounded">#{progress.current + 1}</span>
                           <div className="h-4 bg-white/10 rounded w-48 animate-pulse" />
                           <span className="w-3 h-3 rounded-full border border-primary border-t-transparent animate-spin" />
                         </div>
