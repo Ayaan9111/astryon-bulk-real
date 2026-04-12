@@ -107,6 +107,16 @@ export function AppLayout({ children }: AppLayoutProps) {
             <LogOut className="w-4 h-4" />
             Sign out
           </button>
+
+          <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap gap-x-3 gap-y-1">
+            <Link href="/privacy" className="text-xs text-muted-foreground hover:text-white transition-colors">Privacy</Link>
+            <Link href="/terms" className="text-xs text-muted-foreground hover:text-white transition-colors">Terms</Link>
+            <Link href="/refund" className="text-xs text-muted-foreground hover:text-white transition-colors">Refund</Link>
+            <Link href="/contact" className="text-xs text-muted-foreground hover:text-white transition-colors">Contact</Link>
+          </div>
+          <p className="text-[10px] text-muted-foreground/50 mt-2">
+            &copy; {new Date().getFullYear()} Astryón. All rights reserved.
+          </p>
         </div>
       </aside>
 

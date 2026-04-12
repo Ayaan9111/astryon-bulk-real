@@ -11,7 +11,7 @@ import Generate from "@/pages/generate";
 import History from "@/pages/history";
 import Account from "@/pages/account";
 import Admin from "@/pages/admin";
-import { Privacy, Terms, Refund } from "@/pages/legal";
+import { Privacy, Terms, Refund, Contact } from "@/pages/legal";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -37,6 +37,7 @@ function Router() {
       <Route path="/privacy" component={Privacy} />
       <Route path="/terms" component={Terms} />
       <Route path="/refund" component={Refund} />
+      <Route path="/contact" component={Contact} />
       <Route component={NotFound} />
     </Switch>
   );

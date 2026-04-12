@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 import { ArrowRight, Sparkles, Zap, Clock, TrendingUp, CheckCircle2 } from "lucide-react";
 import { useGetPlans } from "@workspace/api-client-react";
 import { motion } from "framer-motion";
@@ -141,20 +142,7 @@ export default function Landing() {
         </section>
       </main>
 
-      <footer className="border-t border-white/5 py-12 bg-black/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <img src={`${import.meta.env.BASE_URL}images/logo.png`} alt="Logo" className="w-6 h-6" />
-            <span className="font-display font-bold text-xl">Astryón</span>
-          </div>
-          <div className="flex gap-6 text-sm text-muted-foreground">
-            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="/refund" className="hover:text-white transition-colors">Refund Policy</Link>
-          </div>
-          <p className="text-sm text-muted-foreground">&copy; {new Date().getFullYear()} Astryón. All rights reserved.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
