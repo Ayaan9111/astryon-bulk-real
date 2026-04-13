@@ -38,6 +38,11 @@ function sanitizeInput(value: string | null | undefined): string | null {
 router.post("/listings/batches/start", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
 
+  if (user.subscriptionStatus !== "active") {
+    res.status(403).json({ error: "An active subscription is required to generate listings." });
+    return;
+  }
+
   const body = StartBatchBody.safeParse(req.body);
 
   if (!body.success) {
@@ -104,6 +109,11 @@ router.post("/listings/batches/start", requireAuth, async (req, res): Promise<vo
 // 2. Generate one row: pure AI generation, no credit/job logic
 router.post("/listings/generate-row", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
+
+  if (user.subscriptionStatus !== "active") {
+    res.status(403).json({ error: "An active subscription is required to generate listings." });
+    return;
+  }
 
   const body = GenerateRowBody.safeParse(req.body);
 
@@ -196,6 +206,11 @@ router.patch("/listings/batches/:id", requireAuth, async (req, res): Promise<voi
 
 router.post("/listings/generate", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
+
+  if (user.subscriptionStatus !== "active") {
+    res.status(403).json({ error: "An active subscription is required to generate listings." });
+    return;
+  }
 
   const parsed = GenerateListingsBody.safeParse(req.body);
   if (!parsed.success) {
