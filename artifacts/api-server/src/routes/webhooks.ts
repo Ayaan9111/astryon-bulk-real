@@ -5,109 +5,130 @@ import crypto from "crypto";
 
 const router: IRouter = Router();
 
-const PLAN_CREDITS: Record<string, { credits: number; plan: string }> = {
-  starter: { credits: 60, plan: "starter" },
-  pro: { credits: 200, plan: "pro" },
-  agency: { credits: 600, plan: "agency" },
+const STARTER_PRICE_ID = process.env.PADDLE_PRODUCT_STARTER || "";
+const PRO_PRICE_ID = process.env.PADDLE_PRODUCT_PRO || "";
+const AGENCY_PRICE_ID = process.env.PADDLE_PRODUCT_AGENCY || "";
+
+const PRICE_MAP: Record<string, { plan: string; credits: number }> = {
+  [STARTER_PRICE_ID]: { plan: "starter", credits: 60 },
+  [PRO_PRICE_ID]: { plan: "pro", credits: 200 },
+  [AGENCY_PRICE_ID]: { plan: "agency", credits: 600 },
 };
 
-function verifyPaddleWebhook(body: Record<string, any>, publicKey: string): boolean {
-  try {
-    const signature = body.p_signature;
-    if (!signature) return false;
+function verifyPaddleSignature(rawBody: Buffer, header: string, secret: string): boolean {
+  const parts = Object.fromEntries(header.split(";").map(p => p.split("=")));
+  const ts = parts["ts"];
+  const h1 = parts["h1"];
+  if (!ts || !h1) return false;
 
-    const params = Object.keys(body)
-      .filter(k => k !== "p_signature")
-      .sort()
-      .reduce((acc: Record<string, any>, key) => {
-        acc[key] = body[key];
-        return acc;
-      }, {});
-
-    const serialized = Object.entries(params)
-      .map(([k, v]) => `${k}=${v}`)
-      .join("&");
-
-    const verify = crypto.createVerify("SHA1");
-    verify.update(serialized);
-    return verify.verify(publicKey, Buffer.from(signature, "base64"));
-  } catch {
-    return false;
-  }
+  const signed = `${ts}:${rawBody.toString("utf8")}`;
+  const expected = crypto.createHmac("sha256", secret).update(signed).digest("hex");
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(h1));
 }
 
-router.post("/webhooks/paddle", async (req, res): Promise<void> => {
-  const body = req.body;
-  const publicKey = process.env.PADDLE_PUBLIC_KEY || "";
+function extractFromEvent(data: Record<string, any>): { email: string | null; priceId: string | null } {
+  const email =
+    data?.customer?.email ||
+    data?.address?.customer?.email ||
+    null;
 
-  if (publicKey && !verifyPaddleWebhook(body, publicKey)) {
-    await db.insert(webhookLogsTable).values({
-      eventType: body.alert_name || "unknown",
-      payload: JSON.stringify(body),
-      status: "failed_verification",
-    });
-    res.status(400).json({ error: "Invalid webhook signature" });
-    return;
+  const priceId =
+    data?.items?.[0]?.price?.id ||
+    data?.items?.[0]?.price_id ||
+    data?.details?.line_items?.[0]?.price_id ||
+    null;
+
+  return { email, priceId };
+}
+
+router.post("/webhook/paddle", async (req, res): Promise<void> => {
+  const rawBody: Buffer = (req as any).rawBody;
+  const signatureHeader = req.headers["paddle-signature"] as string | undefined;
+  const webhookSecret = process.env.PADDLE_WEBHOOK_SECRET;
+
+  if (webhookSecret && signatureHeader) {
+    if (!verifyPaddleSignature(rawBody, signatureHeader, webhookSecret)) {
+      res.status(400).json({ error: "Invalid webhook signature" });
+      return;
+    }
   }
 
-  const eventType = body.alert_name || body.event_type || "unknown";
+  const eventType: string = req.body?.event_type || "unknown";
+  const data: Record<string, any> = req.body?.data || {};
 
   await db.insert(webhookLogsTable).values({
     eventType,
-    payload: JSON.stringify(body),
+    payload: JSON.stringify(req.body),
     status: "processing",
   });
 
   try {
-    if (eventType === "subscription_created" || eventType === "subscription_payment_succeeded") {
-      let passthrough: any = {};
-      try {
-        passthrough = JSON.parse(body.passthrough || "{}");
-      } catch {}
+    const { email, priceId } = extractFromEvent(data);
 
-      const userId = passthrough.userId;
-      const planId = passthrough.planId || body.subscription_plan_id;
+    if (eventType === "transaction.completed") {
+      if (!email) throw new Error("No customer email in transaction.completed event");
 
-      if (userId) {
-        const planInfo = PLAN_CREDITS[planId] || PLAN_CREDITS.starter;
-        const resetAt = new Date();
-        resetAt.setMonth(resetAt.getMonth() + 1);
+      const planInfo = priceId ? PRICE_MAP[priceId] : null;
+      if (!planInfo) throw new Error(`Unknown price_id: ${priceId}`);
 
-        await db.update(usersTable)
-          .set({
-            plan: planInfo.plan,
-            creditsRemaining: planInfo.credits,
-            creditsTotal: planInfo.credits,
-            subscriptionStatus: "active",
-            subscriptionId: body.subscription_id || null,
-            creditsResetAt: resetAt,
-          })
-          .where(eq(usersTable.id, userId));
-      }
-    } else if (eventType === "subscription_cancelled") {
-      const subscriptionId = body.subscription_id;
-      if (subscriptionId) {
-        await db.update(usersTable)
-          .set({ subscriptionStatus: "cancelled" })
-          .where(eq(usersTable.subscriptionId, subscriptionId));
-      }
-    } else if (eventType === "subscription_payment_failed") {
-      const subscriptionId = body.subscription_id;
-      if (subscriptionId) {
-        await db.update(usersTable)
-          .set({ subscriptionStatus: "payment_failed" })
-          .where(eq(usersTable.subscriptionId, subscriptionId));
-      }
+      const resetAt = new Date();
+      resetAt.setMonth(resetAt.getMonth() + 1);
+
+      await db
+        .update(usersTable)
+        .set({
+          plan: planInfo.plan,
+          creditsRemaining: planInfo.credits,
+          creditsTotal: planInfo.credits,
+          subscriptionStatus: "active",
+          subscriptionId: data?.subscription_id || null,
+          creditsResetAt: resetAt,
+        })
+        .where(eq(usersTable.email, email));
+
+    } else if (eventType === "transaction.payment_failed") {
+      if (!email) throw new Error("No customer email in transaction.payment_failed event");
+
+      await db
+        .update(usersTable)
+        .set({ subscriptionStatus: "inactive" })
+        .where(eq(usersTable.email, email));
+
+    } else if (eventType === "subscription.created") {
+      if (!email) throw new Error("No customer email in subscription.created event");
+
+      await db
+        .update(usersTable)
+        .set({
+          subscriptionStatus: "active",
+          subscriptionId: data?.id || null,
+        })
+        .where(eq(usersTable.email, email));
+
+    } else if (eventType === "subscription.canceled") {
+      if (!email) throw new Error("No customer email in subscription.canceled event");
+
+      await db
+        .update(usersTable)
+        .set({ subscriptionStatus: "cancel_at_period_end" })
+        .where(eq(usersTable.email, email));
     }
 
-    await db.update(webhookLogsTable)
+    await db
+      .update(webhookLogsTable)
       .set({ status: "processed" })
-      .where(eq(webhookLogsTable.eventType, eventType));
+      .where(eq(webhookLogsTable.payload, JSON.stringify(req.body)));
 
-    res.json({ message: "Webhook processed" });
+    res.status(200).json({ received: true });
   } catch (err) {
-    console.error("Webhook processing error:", err);
-    res.status(500).json({ error: "Webhook processing failed" });
+    console.error("[webhook/paddle] processing error:", err);
+
+    await db
+      .update(webhookLogsTable)
+      .set({ status: "error" })
+      .where(eq(webhookLogsTable.payload, JSON.stringify(req.body)));
+
+    res.status(200).json({ received: true });
   }
 });
 
