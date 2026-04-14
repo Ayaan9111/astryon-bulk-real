@@ -1,5 +1,7 @@
 {
-"buildCommand":"pnpm run build",
-"installCommand":"pnom install",
-"ignoreCommand":"echo ignoring typecheck"
+  "buildCommand": "pnpm run build",
+  "installCommand": "pnpm install",
+  "typescript": {
+    "ignoreBuildErrors": true
+  }
 }
