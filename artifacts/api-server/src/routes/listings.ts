@@ -161,7 +161,7 @@ router.post("/listings/generate-row", requireAuth, async (req, res): Promise<voi
 // 3. Finish batch: save all results, refund failed credits, mark completed
 router.patch("/listings/batches/:id", requireAuth, async (req, res): Promise<void> => {
   const user = (req as any).user;
-  const rawId = req.params.id;
+  const rawId = req.params.id as string;
   const batchId = parseInt(rawId, 10);
 
   if (isNaN(batchId)) {
