@@ -1,6 +1,8 @@
-import Groq from "groq-sdk";
+const Groq = require("groq-sdk");
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq.default
+? new Groq.default({ apiKey: process.env.GROQ_API_KEY })
+: new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 function getModelForPlan(plan: string): { provider: string; model: string } {
   const starterProvider = process.env.STARTER_PROVIDER || process.env.MODEL_PROVIDER || "groq";
