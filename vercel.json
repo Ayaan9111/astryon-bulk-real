@@ -1,7 +1,5 @@
 {
-  "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install",
-  "typescript": {
-    "ignoreBuildErrors": true
-  }
+  "buildCommand": "cd artifacts/api-server && pnpm run build",
+  "installCommand": "cd artifacts/api-server && pnpm install",
+  "outputDirectory": "artifacts/api-server/dist"
 }
