@@ -1,15 +1,6 @@
 import Groq from "groq-sdk";
 
-let groqClient: Groq | null = null;
-
-function getGroqClient(): Groq {
-  if (!groqClient) {
-    const apiKey = process.env.GROQ_API_KEY;
-    if (!apiKey) throw new Error("GROQ_API_KEY is not set");
-    groqClient = new Groq({ apiKey });
-  }
-  return groqClient;
-}
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 function getModelForPlan(plan: string): { provider: string; model: string } {
   const starterProvider = process.env.STARTER_PROVIDER || process.env.MODEL_PROVIDER || "groq";
@@ -149,13 +140,12 @@ export async function generateListingDescription(
   const { model } = getModelForPlan(userPlan);
   const prompt = buildPrompt(property, outputMode, includeSocial);
 
-  const groq = getGroqClient();
   const responseText = await callWithRetry(() =>
     groq.chat.completions.create({
       model: model || "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.4,
-    }).then((c) => c.choices[0]?.message?.content || "")
+    }).then((c: any) => c.choices[0]?.message?.content || "")
   );
 
   const parsed = parseResponse(responseText, includeSocial);
