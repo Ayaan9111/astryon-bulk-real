@@ -1,8 +1,8 @@
-const Groq = require("groq-sdk");
+import Groq from "groq-sdk";
 
-const groq = new Groq.default
-? new Groq.default({ apiKey: process.env.GROQ_API_KEY })
-: new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY!,
+});
 
 function getModelForPlan(plan: string): { provider: string; model: string } {
   const starterProvider = process.env.STARTER_PROVIDER || process.env.MODEL_PROVIDER || "groq";
@@ -91,7 +91,10 @@ LONG_DESCRIPTION: [long description here]
 SHORT_DESCRIPTION: [short description here]${socialOutput}`;
 }
 
-function parseResponse(text: string, includeSocial: boolean): { longDescription: string; shortDescription: string; socialCaption: string | null } {
+function parseResponse(
+  text: string,
+  includeSocial: boolean
+): { longDescription: string; shortDescription: string; socialCaption: string | null } {
   const longMatch = text.match(/LONG_DESCRIPTION:\s*([\s\S]*?)(?=SHORT_DESCRIPTION:|$)/);
   const shortMatch = text.match(/SHORT_DESCRIPTION:\s*([\s\S]*?)(?=SOCIAL_CAPTION:|$)/);
   const socialMatch = text.match(/SOCIAL_CAPTION:\s*([\s\S]*?)$/);
@@ -109,11 +112,13 @@ function sleep(ms: number): Promise<void> {
 
 async function callWithRetry(fn: () => Promise<string>, maxRetries = 4): Promise<string> {
   let lastError: any;
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (err: any) {
       lastError = err;
+
       const isRateLimit =
         err?.status === 429 ||
         err?.error?.type === "rate_limit_exceeded" ||
@@ -121,15 +126,16 @@ async function callWithRetry(fn: () => Promise<string>, maxRetries = 4): Promise
         String(err?.message || "").toLowerCase().includes("rate_limit");
 
       if (isRateLimit && attempt < maxRetries) {
-        // Exponential backoff: 1 s, 2 s, 4 s, 8 s
         const waitMs = Math.pow(2, attempt) * 1000;
         console.warn(`Groq rate limit hit (attempt ${attempt + 1}/${maxRetries + 1}). Retrying in ${waitMs}ms…`);
         await sleep(waitMs);
         continue;
       }
+
       throw err;
     }
   }
+
   throw lastError;
 }
 
@@ -143,11 +149,13 @@ export async function generateListingDescription(
   const prompt = buildPrompt(property, outputMode, includeSocial);
 
   const responseText = await callWithRetry(() =>
-    groq.chat.completions.create({
-      model: model || "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-    }).then((c: any) => c.choices[0]?.message?.content || "")
+    groq.chat.completions
+      .create({
+        model: model || "llama-3.3-70b-versatile",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+      })
+      .then((c: any) => c.choices?.[0]?.message?.content || "")
   );
 
   const parsed = parseResponse(responseText, includeSocial);
