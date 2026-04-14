@@ -1,7 +1,12 @@
-import Groq from "groq-sdk";
+// 👇 kill TypeScript interference completely
+// @ts-ignore
+import GroqImport from "groq-sdk";
+
+// force correct constructor (handles ESM/CommonJS mismatch)
+const Groq: any = (GroqImport as any).default || GroqImport;
 
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY!,
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 function getModelForPlan(plan: string): { provider: string; model: string } {
