@@ -1,5 +1,4 @@
 {
   "buildCommand": "cd artifacts/api-server && pnpm run build",
-  "installCommand": "cd artifacts/api-server && pnpm install",
-  "outputDirectory": "artifacts/api-server/dist"
+  "installCommand": "cd artifacts/api-server && pnpm install"
 }
