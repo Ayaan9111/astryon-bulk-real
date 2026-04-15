@@ -32,7 +32,7 @@
     "tsx": "catalog:"
   }
   "scripts": {
-    "build": "echo 'no build needed for vercel api"
+    "build": "echo 'no build needed for vercel api",
   
   }
 }
