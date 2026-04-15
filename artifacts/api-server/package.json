@@ -31,8 +31,4 @@
     "esbuild": "^0.27.3",
     "tsx": "catalog:"
   }
-  "scripts": {
-    "build": "echo 'no build needed for vercel api",
-  
-  }
 }
